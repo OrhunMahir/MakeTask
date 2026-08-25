@@ -1,0 +1,58 @@
+import SwiftUI
+
+@main
+struct MakeTaskApp: App {
+    @NSApplicationDelegateAdaptor(MakeTaskAppDelegate.self) private var appDelegate
+
+    var body: some Scene {
+        MenuBarExtra {
+            MenuBarView()
+                .modelContainer(appDelegate.modelContainer)
+                .environmentObject(appDelegate.windowCoordinator)
+                .environmentObject(appDelegate.settings)
+                .environmentObject(appDelegate.launchAtLogin)
+        } label: {
+            Label("MakeTask", systemImage: "checklist")
+        }
+        .menuBarExtraStyle(.menu)
+
+        Settings {
+            SettingsView()
+                .modelContainer(appDelegate.modelContainer)
+                .environmentObject(appDelegate.windowCoordinator)
+                .environmentObject(appDelegate.settings)
+                .environmentObject(appDelegate.launchAtLogin)
+        }
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("New Task") {
+                    appDelegate.windowCoordinator.focusNewTaskInActiveNote()
+                }
+                .keyboardShortcut("n", modifiers: .command)
+
+                Button("New List") {
+                    _ = appDelegate.windowCoordinator.createList()
+                }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+            }
+
+            CommandMenu("Note") {
+                Button("Hide Current Note") {
+                    appDelegate.windowCoordinator.hideActiveNote()
+                }
+                .keyboardShortcut("w", modifiers: .command)
+
+                Button("Collapse or Expand Current Note") {
+                    appDelegate.windowCoordinator.collapseActiveNote()
+                }
+                .keyboardShortcut("m", modifiers: .command)
+
+                Divider()
+
+                Button("Quick Add") {
+                    appDelegate.windowCoordinator.presentQuickAdd()
+                }
+            }
+        }
+    }
+}
