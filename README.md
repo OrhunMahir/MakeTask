@@ -134,6 +134,7 @@ MakeTask makes no network requests and its app target has outgoing network acces
 
 ## Next phases
 
+- One-command `maketask` terminal launcher; see [ROADMAP.md](ROADMAP.md)
 - Task title and notes editor
 - Due dates, priorities, and subtasks
 - Configurable completed-task delay
