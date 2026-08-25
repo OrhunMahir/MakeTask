@@ -54,6 +54,8 @@ Traffic-light controls are absent because the panel is borderless. The SwiftUI h
 
 Window modes map to AppKit as follows:
 
+New notes default to Normal Window. Stay on Desktop and Always on Top are explicit per-note choices.
+
 | MakeTask mode | NSWindow level | Collection behavior |
 | --- | --- | --- |
 | Stay on Desktop | Just above desktop icons, below normal apps | All Spaces, stationary, excluded from window cycle |

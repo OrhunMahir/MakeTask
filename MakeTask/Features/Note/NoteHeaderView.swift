@@ -1,11 +1,14 @@
+import AppKit
 import SwiftUI
 
 struct NoteHeaderView: View {
     @Bindable var list: TodoList
-    @Binding var isRenaming: Bool
     @Binding var isConfirmingDelete: Bool
 
     @EnvironmentObject private var coordinator: WindowCoordinator
+    @State private var isRenaming = false
+    @State private var titleDraft = ""
+    @FocusState private var isTitleFocused: Bool
 
     private var completedCount: Int {
         list.tasks.lazy.filter(\.isCompleted).count
@@ -17,9 +20,21 @@ struct NoteHeaderView: View {
                 .fill(list.noteColor.tint)
                 .frame(width: 4, height: 18)
 
-            Text(list.title)
-                .font(.system(size: 13.5, weight: .semibold))
-                .lineLimit(1)
+            if isRenaming {
+                TextField("List name", text: $titleDraft)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .focused($isTitleFocused)
+                    .onSubmit(commitRename)
+                    .onExitCommand(perform: cancelRename)
+            } else {
+                Text(list.title)
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .lineLimit(1)
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: beginRename)
+                    .help("Click to rename")
+            }
 
             Spacer(minLength: 8)
 
@@ -31,7 +46,7 @@ struct NoteHeaderView: View {
 
             Menu {
                 Button("Rename") {
-                    isRenaming = true
+                    beginRename()
                 }
 
                 Menu("Change Color") {
@@ -92,7 +107,41 @@ struct NoteHeaderView: View {
         .frame(height: NoteWindowMetrics.headerHeight)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
+            guard !isRenaming else { return }
             coordinator.toggleCollapse(list)
         }
+        .onReceive(coordinator.$renameListID) { listID in
+            guard listID == list.id else { return }
+            beginRename()
+        }
+        .onChange(of: isTitleFocused) { _, isFocused in
+            if !isFocused && isRenaming {
+                commitRename()
+            }
+        }
+    }
+
+    private func beginRename() {
+        titleDraft = list.title
+        isRenaming = true
+        DispatchQueue.main.async {
+            isTitleFocused = true
+            DispatchQueue.main.async {
+                (NSApp.keyWindow?.firstResponder as? NSTextView)?.selectAll(nil)
+            }
+        }
+    }
+
+    private func commitRename() {
+        guard isRenaming else { return }
+        isRenaming = false
+        isTitleFocused = false
+        coordinator.renameList(list, to: titleDraft)
+    }
+
+    private func cancelRename() {
+        isRenaming = false
+        isTitleFocused = false
+        titleDraft = list.title
     }
 }

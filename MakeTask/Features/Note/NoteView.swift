@@ -6,8 +6,6 @@ struct NoteView: View {
     @EnvironmentObject private var coordinator: WindowCoordinator
     @EnvironmentObject private var settings: AppSettings
     @State private var newTaskTitle = ""
-    @State private var renameTitle = ""
-    @State private var isRenaming = false
     @State private var isConfirmingDelete = false
     @FocusState private var isNewTaskFocused: Bool
 
@@ -23,7 +21,6 @@ struct NoteView: View {
         VStack(spacing: 0) {
             NoteHeaderView(
                 list: list,
-                isRenaming: $isRenaming,
                 isConfirmingDelete: $isConfirmingDelete
             )
 
@@ -75,18 +72,6 @@ struct NoteView: View {
         .onReceive(coordinator.$focusNewTaskListID) { listID in
             guard listID == list.id, !list.isCollapsed else { return }
             isNewTaskFocused = true
-        }
-        .onChange(of: isRenaming) { _, isPresented in
-            if isPresented { renameTitle = list.title }
-        }
-        .alert("Rename List", isPresented: $isRenaming) {
-            TextField("List name", text: $renameTitle)
-            Button("Cancel", role: .cancel) {}
-            Button("Rename") {
-                coordinator.renameList(list, to: renameTitle)
-            }
-        } message: {
-            Text("Choose a name for this desktop note.")
         }
         .confirmationDialog(
             "Delete “\(list.title)”?",

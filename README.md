@@ -9,13 +9,16 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - Multiple independent floating todo notes
 - No forced Inbox or other system list
 - Create, rename, hide, show, and delete lists
+- Click a list title to rename it inline; new lists start in rename mode
 - Create, complete, uncomplete, delete, and reorder tasks
 - Drag tasks between note windows
 - Double-click a note header to collapse it to its title bar
 - Collapse and hide are separate, persisted states
 - Three per-note modes: Stay on Desktop, Always on Top, and Normal Window
+- Normal Window is the default for newly created notes
 - Menu bar controls; no main window is required
 - Global Quick Add, defaulting to `⌘⇧Space`
+- Quick Add automatically restores a hidden target note after adding a task
 - Configurable global Quick Add key and modifiers
 - SwiftData persistence for tasks and note window state
 - System, light, and dark appearance with native vibrancy

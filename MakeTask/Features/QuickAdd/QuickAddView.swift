@@ -124,6 +124,7 @@ struct QuickAddView: View {
         guard !trimmed.isEmpty else { return }
         coordinator.addTask(title: trimmed, to: list)
         settings.lastQuickCaptureListID = list.id
+        coordinator.show(list)
         coordinator.dismissQuickAdd()
     }
 }

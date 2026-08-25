@@ -10,6 +10,7 @@ final class WindowCoordinator: ObservableObject {
 
     @Published private(set) var activeListID: UUID?
     @Published var focusNewTaskListID: UUID?
+    @Published var renameListID: UUID?
     @Published var errorMessage: String?
 
     private let context: ModelContext
@@ -29,6 +30,8 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func start() {
+        migrateLegacyWindowDefaultsIfNeeded()
+
         do {
             let service = try GlobalHotKeyService()
             service.onPressed = { [weak self] in
@@ -75,6 +78,7 @@ final class WindowCoordinator: ObservableObject {
         saveContext()
         show(list)
         noteWindows[list.id]?.activateAndFocus()
+        renameListID = list.id
         return list
     }
 
@@ -308,6 +312,18 @@ final class WindowCoordinator: ObservableObject {
             suffix += 1
         }
         return "New List \(suffix)"
+    }
+
+    private func migrateLegacyWindowDefaultsIfNeeded() {
+        let migrationKey = "MakeTask.didMigrateDefaultWindowModeToNormal.v1"
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: migrationKey) else { return }
+
+        for list in fetchLists() where list.windowMode == .desktop {
+            list.windowMode = .normal
+        }
+        saveContext()
+        defaults.set(true, forKey: migrationKey)
     }
 
     private func restoredFrame(for list: TodoList) -> NSRect {

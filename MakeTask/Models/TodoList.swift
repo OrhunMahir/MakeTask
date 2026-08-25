@@ -33,7 +33,7 @@ final class TodoList {
         windowHeight: Double = 360,
         isCollapsed: Bool = false,
         isHidden: Bool = false,
-        windowMode: WindowMode = .desktop,
+        windowMode: WindowMode = .normal,
         tasks: [TodoTask] = []
     ) {
         self.id = id
@@ -57,7 +57,7 @@ final class TodoList {
     }
 
     var windowMode: WindowMode {
-        get { WindowMode(rawValue: windowModeRawValue) ?? .desktop }
+        get { WindowMode(rawValue: windowModeRawValue) ?? .normal }
         set { windowModeRawValue = newValue.rawValue }
     }
 
