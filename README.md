@@ -10,15 +10,20 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - No forced Inbox or other system list
 - Create, rename, hide, show, and delete lists
 - Click a list title to rename it inline; new lists start in rename mode
+- Create a named list directly inside Quick Add without leaving the keyboard flow
 - Create, complete, uncomplete, delete, and reorder tasks
-- Drag tasks between note windows
-- Double-click a note header to collapse it to its title bar
+- Drag tasks between note windows with a highlighted held-task preview
+- Drag a note only from the empty header area, so task dragging never moves the window
+- Double-click the empty note header area to collapse it to its title bar
 - Collapse and hide are separate, persisted states
 - Three per-note modes: Stay on Desktop, Always on Top, and Normal Window
 - Normal Window is the default for newly created notes
 - Menu bar controls; no main window is required
+- Menu bar command center with visible shortcut labels
+- Built-in Guide interface for shortcuts, gestures, hide/collapse behavior, and quick actions
 - Global Quick Add, defaulting to `⌘⇧Space`
-- Quick Add automatically restores a hidden target note after adding a task
+- Quick Add can reveal a hidden target note and automatically restores it after adding a task
+- Hidden notes remain visible in the menu bar and `⌘⇧H` shows them again
 - Configurable global Quick Add key and modifiers
 - SwiftData persistence for tasks and note window state
 - System, light, and dark appearance with native vibrancy
@@ -79,7 +84,7 @@ The Quick Add surface is another small borderless panel. It is created on demand
 
 Collapse never calls `orderOut` and never closes the panel. The expanded height is persisted, while the window's top edge is treated as its anchor. Collapsing animates the bottom edge upward to a 46-point header; expanding reconstructs the previous frame from the saved top edge and expanded height.
 
-Hide is deliberately different: it calls `orderOut`, marks the list hidden, and lets the menu bar show it again.
+Hide is deliberately different: it calls `orderOut`, marks the list hidden, and lets the menu bar show it again. Hidden notes are labeled explicitly in the menu, can be revealed from Quick Add, and `⌘⇧H` toggles all notes globally.
 
 ## Data model
 
@@ -129,6 +134,7 @@ More detail is available in [ARCHITECTURE.md](ARCHITECTURE.md).
 | New list | `⌘⇧N` |
 | Hide active note | `⌘W` |
 | Collapse/expand active note | `⌘M` |
+| Show/hide all notes | `⌘⇧H` |
 | Cancel Quick Add or task entry | `Escape` |
 
 ## Privacy

@@ -47,6 +47,11 @@ struct MakeTaskApp: App {
                 }
                 .keyboardShortcut("m", modifiers: .command)
 
+                Button("Show or Hide All Notes") {
+                    appDelegate.windowCoordinator.toggleAllNotesVisibility()
+                }
+                .keyboardShortcut("h", modifiers: [.command, .shift])
+
                 Divider()
 
                 Button("Quick Add") {

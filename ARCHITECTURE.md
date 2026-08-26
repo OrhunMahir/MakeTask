@@ -11,6 +11,8 @@ MakeTask has no conventional document or main window. The application lifecycle 
 1. `MenuBarExtra` is the always-available control surface.
 2. `Settings` creates a standard preferences window only when requested.
 
+Settings includes General, Appearance, Shortcuts, and Guide tabs. The Guide is an in-app reference and quick-action surface; the menu bar can open it directly without introducing a permanent main window.
+
 `MakeTaskAppDelegate` creates the shared SwiftData container, preferences, login-item service, and `WindowCoordinator`. On launch, the coordinator registers the global shortcut and restores each non-hidden list window.
 
 The generated Info.plist sets `LSUIElement` so MakeTask does not require a Dock icon or a normal main window.
@@ -50,7 +52,7 @@ Task ordering uses a persisted `Double`. Current operations normalize the affect
 
 `FloatingNotePanel` is an `NSPanel` subclass that can become key but not main. It has a borderless, resizable style and an `NSHostingView` containing `NoteView`.
 
-Traffic-light controls are absent because the panel is borderless. The SwiftUI header exposes a compact ellipsis menu for rename, color, window level, collapse, hide, and delete actions.
+Traffic-light controls are absent because the panel is borderless. The SwiftUI header exposes a compact ellipsis menu for rename, color, window level, collapse, hide, and delete actions. A small AppKit drag-area bridge confines window movement and the double-click roll-up gesture to otherwise empty header space; the task body never moves the panel.
 
 Window modes map to AppKit as follows:
 
@@ -80,15 +82,15 @@ Expand performs the inverse and restores the last expanded height. The panel ins
 
 ### Hide and show
 
-Hide sets `isHidden`, calls `orderOut`, and keeps the list in SwiftData. Show clears the flag and reuses or recreates the panel controller. This path never modifies `isCollapsed`, so a hidden collapsed note returns still collapsed.
+Hide sets `isHidden`, calls `orderOut`, and keeps the list in SwiftData. Show clears the flag and reuses or recreates the panel controller. This path never modifies `isCollapsed`, so a hidden collapsed note returns still collapsed. The menu labels each list as visible or hidden, Quick Add offers a reveal action for its selected list, and a global visibility shortcut provides a recovery path even when every note is hidden.
 
 ### Quick Add
 
-Quick Add is a short-lived borderless floating panel centered on the screen containing the mouse. It activates MakeTask, focuses the title field, uses the last Quick Capture list when possible, and supports Enter and Escape without a mouse.
+Quick Add is a short-lived borderless floating panel centered on the screen containing the mouse. It activates MakeTask, focuses the title field, uses the last Quick Capture list when possible, and supports Enter and Escape without a mouse. Its list picker can switch to an inline named-list form; when no lists exist, that form is the default state.
 
 ## Global shortcut
 
-`GlobalHotKeyService` installs one Carbon application event handler and registers an `EventHotKeyID`. Carbon hotkeys are used because they are native, efficient, global, and do not require an accessibility event tap. Registration failures are surfaced by `WindowCoordinator.errorMessage` rather than silently ignored.
+`GlobalHotKeyService` installs a Carbon application event handler and filters events by `EventHotKeyID`, allowing independent Quick Add and note-visibility registrations. Carbon hotkeys are native, efficient, global, and do not require an accessibility event tap. A local AppKit key monitor handles note-scoped commands such as hide and collapse when a note panel is active. Registration failures are surfaced by `WindowCoordinator.errorMessage` rather than silently ignored.
 
 ## Performance characteristics
 

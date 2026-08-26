@@ -18,11 +18,14 @@ final class GlobalHotKeyService {
 
     private static let signature: OSType = 0x4D4B5453 // "MKTS"
 
+    private let identifier: UInt32
     private var hotKey: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
     var onPressed: (() -> Void)?
 
-    init() throws {
+    init(identifier: UInt32 = 1) throws {
+        self.identifier = identifier
+
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
@@ -30,11 +33,28 @@ final class GlobalHotKeyService {
 
         let status = InstallEventHandler(
             GetApplicationEventTarget(),
-            { _, _, userData -> OSStatus in
-                guard let userData else { return OSStatus(eventNotHandledErr) }
+            { _, event, userData -> OSStatus in
+                guard let event, let userData else { return OSStatus(eventNotHandledErr) }
                 let service = Unmanaged<GlobalHotKeyService>
                     .fromOpaque(userData)
                     .takeUnretainedValue()
+
+                var pressedHotKeyID = EventHotKeyID()
+                let parameterStatus = GetEventParameter(
+                    event,
+                    EventParamName(kEventParamDirectObject),
+                    EventParamType(typeEventHotKeyID),
+                    nil,
+                    MemoryLayout<EventHotKeyID>.size,
+                    nil,
+                    &pressedHotKeyID
+                )
+                guard parameterStatus == noErr,
+                      pressedHotKeyID.signature == GlobalHotKeyService.signature,
+                      pressedHotKeyID.id == service.identifier else {
+                    return OSStatus(eventNotHandledErr)
+                }
+
                 DispatchQueue.main.async {
                     service.onPressed?()
                 }
@@ -53,7 +73,7 @@ final class GlobalHotKeyService {
 
     func register(keyCode: UInt32, modifiers: UInt32) throws {
         unregister()
-        let hotKeyID = EventHotKeyID(signature: Self.signature, id: 1)
+        let hotKeyID = EventHotKeyID(signature: Self.signature, id: identifier)
         let status = RegisterEventHotKey(
             keyCode,
             modifiers,

@@ -5,6 +5,13 @@ import Foundation
 
 @MainActor
 final class AppSettings: ObservableObject {
+    enum SettingsTab: Hashable {
+        case general
+        case appearance
+        case shortcuts
+        case guide
+    }
+
     enum AppearanceMode: String, CaseIterable, Identifiable {
         case system
         case light
@@ -36,6 +43,8 @@ final class AppSettings: ObservableObject {
     }
 
     private let defaults: UserDefaults
+
+    @Published var selectedSettingsTab: SettingsTab = .general
 
     @Published var appearance: AppearanceMode {
         didSet {

@@ -36,7 +36,12 @@ struct NoteHeaderView: View {
                     .help("Click to rename")
             }
 
-            Spacer(minLength: 8)
+            WindowDragArea {
+                guard !isRenaming else { return }
+                coordinator.toggleCollapse(list)
+            }
+            .frame(minWidth: 12, maxWidth: .infinity, maxHeight: .infinity)
+            .help("Drag to move · Double-click to collapse")
 
             if !list.tasks.isEmpty {
                 Text("\(completedCount)/\(list.tasks.count)")
@@ -105,11 +110,6 @@ struct NoteHeaderView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: NoteWindowMetrics.headerHeight)
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            guard !isRenaming else { return }
-            coordinator.toggleCollapse(list)
-        }
         .onReceive(coordinator.$renameListID) { listID in
             guard listID == list.id else { return }
             beginRename()

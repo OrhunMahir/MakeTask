@@ -49,7 +49,9 @@ struct NoteView: View {
                 }
                 .dropDestination(for: String.self) { items, _ in
                     guard let rawID = items.first, let id = UUID(uuidString: rawID) else { return false }
-                    coordinator.moveTask(id: id, to: list)
+                    withAnimation(.snappy(duration: 0.22)) {
+                        coordinator.moveTask(id: id, to: list)
+                    }
                     return true
                 }
 

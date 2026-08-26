@@ -58,6 +58,7 @@ struct ShortcutSettingsView: View {
                 shortcutRow("New List", shortcut: "⇧⌘N")
                 shortcutRow("Hide Current Note", shortcut: "⌘W")
                 shortcutRow("Collapse Current Note", shortcut: "⌘M")
+                shortcutRow("Show/Hide All Notes", shortcut: "⇧⌘H")
             } header: {
                 Text("App Shortcuts")
             }

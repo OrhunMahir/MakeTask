@@ -6,6 +6,7 @@ struct TaskRowView: View {
 
     @EnvironmentObject private var coordinator: WindowCoordinator
     @State private var isHovering = false
+    @GestureState private var isPressing = false
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 9) {
@@ -45,6 +46,25 @@ struct TaskRowView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
         .contentShape(Rectangle())
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(list.noteColor.tint.opacity(isPressing ? 0.14 : 0))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(
+                    list.noteColor.tint.opacity(isPressing ? 0.95 : 0),
+                    lineWidth: isPressing ? 1.5 : 0
+                )
+        }
+        .scaleEffect(isPressing ? 1.012 : 1)
+        .animation(.easeOut(duration: 0.12), value: isPressing)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.10)
+                .updating($isPressing) { isPressed, state, _ in
+                    state = isPressed
+                }
+        )
         .onHover { isHovering = $0 }
         .contextMenu {
             Button(task.isCompleted ? "Mark Incomplete" : "Mark Complete") {
@@ -56,15 +76,27 @@ struct TaskRowView: View {
             }
         }
         .draggable(task.id.uuidString) {
-            Text(task.title)
-                .lineLimit(1)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            HStack(spacing: 8) {
+                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(list.noteColor.tint)
+                Text(task.title)
+                    .lineLimit(1)
+            }
+            .font(.system(size: 13.5, weight: .medium))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 9))
+            .overlay {
+                RoundedRectangle(cornerRadius: 9)
+                    .stroke(list.noteColor.tint.opacity(0.95), lineWidth: 2)
+            }
+            .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
         }
         .dropDestination(for: String.self) { items, _ in
             guard let rawID = items.first, let id = UUID(uuidString: rawID) else { return false }
-            coordinator.moveTask(id: id, to: list, before: task)
+            withAnimation(.snappy(duration: 0.22)) {
+                coordinator.moveTask(id: id, to: list, before: task)
+            }
             return true
         }
     }

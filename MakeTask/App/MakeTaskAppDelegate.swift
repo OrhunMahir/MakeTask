@@ -30,6 +30,7 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        windowCoordinator.stop()
         windowCoordinator.saveContext()
     }
 

@@ -34,7 +34,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
         panel.hasShadow = true
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
-        panel.isMovableByWindowBackground = true
+        panel.isMovableByWindowBackground = false
         panel.acceptsMouseMovedEvents = true
         panel.animationBehavior = .utilityWindow
         panel.minSize = NSSize(

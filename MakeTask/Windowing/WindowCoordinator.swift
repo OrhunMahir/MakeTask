@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import Combine
 import SwiftData
 
@@ -16,7 +17,9 @@ final class WindowCoordinator: ObservableObject {
     private let context: ModelContext
     private var noteWindows: [UUID: NoteWindowController] = [:]
     private var quickAddWindow: QuickAddWindowController?
-    private var hotKeyService: GlobalHotKeyService?
+    private var quickAddHotKeyService: GlobalHotKeyService?
+    private var visibilityHotKeyService: GlobalHotKeyService?
+    private var localKeyMonitor: Any?
 
     init(
         modelContainer: ModelContainer,
@@ -33,17 +36,37 @@ final class WindowCoordinator: ObservableObject {
         migrateLegacyWindowDefaultsIfNeeded()
 
         do {
-            let service = try GlobalHotKeyService()
-            service.onPressed = { [weak self] in
+            let quickAddService = try GlobalHotKeyService(identifier: 1)
+            quickAddService.onPressed = { [weak self] in
                 self?.presentQuickAdd()
             }
-            hotKeyService = service
+            quickAddHotKeyService = quickAddService
             reloadGlobalShortcut()
+
+            let visibilityService = try GlobalHotKeyService(identifier: 2)
+            visibilityService.onPressed = { [weak self] in
+                self?.toggleAllNotesVisibility()
+            }
+            try visibilityService.register(
+                keyCode: UInt32(kVK_ANSI_H),
+                modifiers: UInt32(cmdKey | shiftKey)
+            )
+            visibilityHotKeyService = visibilityService
         } catch {
             errorMessage = error.localizedDescription
         }
 
+        installLocalKeyMonitor()
         restoreVisibleNotes()
+    }
+
+    func stop() {
+        quickAddHotKeyService?.unregister()
+        visibilityHotKeyService?.unregister()
+        if let localKeyMonitor {
+            NSEvent.removeMonitor(localKeyMonitor)
+            self.localKeyMonitor = nil
+        }
     }
 
     func restoreVisibleNotes() {
@@ -78,7 +101,9 @@ final class WindowCoordinator: ObservableObject {
         saveContext()
         show(list)
         noteWindows[list.id]?.activateAndFocus()
-        renameListID = list.id
+        if title == nil {
+            renameListID = list.id
+        }
         return list
     }
 
@@ -137,6 +162,11 @@ final class WindowCoordinator: ObservableObject {
         saveContext()
     }
 
+    func showAndActivate(_ list: TodoList) {
+        show(list)
+        noteWindows[list.id]?.activateAndFocus()
+    }
+
     func hide(_ list: TodoList) {
         list.isHidden = true
         noteWindows[list.id]?.hide()
@@ -144,15 +174,36 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func toggleVisibility(of list: TodoList) {
-        list.isHidden ? show(list) : hide(list)
+        list.isHidden ? showAndActivate(list) : hide(list)
     }
 
     func showAll() {
-        fetchLists().forEach(show)
+        let lists = fetchLists()
+        lists.forEach(show)
+        if let firstList = lists.first {
+            noteWindows[firstList.id]?.activateAndFocus()
+        }
     }
 
     func hideAll() {
         fetchLists().forEach(hide)
+    }
+
+    func toggleAllNotesVisibility() {
+        let lists = fetchLists()
+        guard !lists.isEmpty else {
+            presentQuickAdd()
+            return
+        }
+
+        if lists.allSatisfy({ !$0.isHidden }) {
+            lists.forEach(hide)
+        } else {
+            lists.forEach(show)
+            if let firstList = lists.first {
+                noteWindows[firstList.id]?.activateAndFocus()
+            }
+        }
     }
 
     func toggleCollapse(_ list: TodoList) {
@@ -262,12 +313,12 @@ final class WindowCoordinator: ObservableObject {
 
     func reloadGlobalShortcut() {
         guard settings.quickAddCarbonModifiers != 0 else {
-            hotKeyService?.unregister()
+            quickAddHotKeyService?.unregister()
             errorMessage = "The global shortcut needs at least one modifier key."
             return
         }
         do {
-            try hotKeyService?.register(
+            try quickAddHotKeyService?.register(
                 keyCode: settings.quickAddKeyCode,
                 modifiers: settings.quickAddCarbonModifiers
             )
@@ -289,6 +340,48 @@ final class WindowCoordinator: ObservableObject {
     private func activeList() -> TodoList? {
         guard let activeListID else { return nil }
         return fetchLists().first { $0.id == activeListID }
+    }
+
+    private func installLocalKeyMonitor() {
+        guard localKeyMonitor == nil else { return }
+        localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, !event.isARepeat else { return event }
+
+            var modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            modifiers.subtract([.capsLock, .function, .numericPad])
+            let key = event.charactersIgnoringModifiers?.lowercased()
+
+            if key == "w", modifiers == [.command] {
+                if self.quickAddWindow?.window?.isKeyWindow == true {
+                    self.dismissQuickAdd()
+                    return nil
+                }
+                if NSApp.keyWindow is FloatingNotePanel {
+                    self.hideActiveNote()
+                    return nil
+                }
+            }
+
+            if key == "m",
+               modifiers == [.command],
+               self.quickAddWindow?.window?.isKeyWindow != true,
+               NSApp.keyWindow is FloatingNotePanel {
+                self.collapseActiveNote()
+                return nil
+            }
+
+            if key == "n", modifiers == [.command, .shift] {
+                _ = self.createList()
+                return nil
+            }
+
+            if key == "n", modifiers == [.command] {
+                self.focusNewTaskInActiveNote()
+                return nil
+            }
+
+            return event
+        }
     }
 
     private func fetchLists() -> [TodoList] {
