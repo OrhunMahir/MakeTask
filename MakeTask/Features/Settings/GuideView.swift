@@ -66,6 +66,54 @@ struct GuideView: View {
                 keys: "⇧⌘H"
             ),
             ShortcutItem(
+                icon: "magnifyingglass",
+                title: "Search Tasks",
+                detail: "Filter tasks in the active note",
+                keys: "⌘F"
+            ),
+            ShortcutItem(
+                icon: "arrow.uturn.backward",
+                title: "Undo Action",
+                detail: "Undo the last task or list change",
+                keys: "⌘Z"
+            ),
+            ShortcutItem(
+                icon: "trash",
+                title: "Delete Note",
+                detail: "Ask before deleting the active note",
+                keys: "⌘⌫"
+            ),
+            ShortcutItem(
+                icon: "arrow.up.arrow.down",
+                title: "Select Task",
+                detail: "Move the keyboard selection",
+                keys: "↑  ↓"
+            ),
+            ShortcutItem(
+                icon: "checkmark.circle",
+                title: "Complete Task",
+                detail: "Toggle the selected task",
+                keys: "Space"
+            ),
+            ShortcutItem(
+                icon: "pencil",
+                title: "Edit Task",
+                detail: "Edit the selected task inline",
+                keys: "Return"
+            ),
+            ShortcutItem(
+                icon: "arrow.up.arrow.down.circle",
+                title: "Reorder Task",
+                detail: "Move the selected task up or down",
+                keys: "⌥↑  ⌥↓"
+            ),
+            ShortcutItem(
+                icon: "square.stack",
+                title: "Switch List",
+                detail: "Activate lists one through nine",
+                keys: "⌘1…9"
+            ),
+            ShortcutItem(
                 icon: "gearshape",
                 title: "Settings",
                 detail: "Open MakeTask preferences",
@@ -99,7 +147,7 @@ struct GuideView: View {
         InteractionItem(
             icon: "hand.point.up.left",
             title: "Hold and drag a task",
-            detail: "The highlighted outline marks the held task. Drop it to reorder or move it to another note."
+            detail: "Move over another row to reorder immediately, then drop it there or in another note."
         ),
         InteractionItem(
             icon: "checkmark.circle",
@@ -109,13 +157,11 @@ struct GuideView: View {
     ]
 
     private let nextShortcutIdeas = [
-        ("Search all tasks", "⌘F"),
-        ("Undo last action", "⌘Z"),
-        ("Select previous/next task", "↑  ↓"),
-        ("Complete selected task", "Space"),
-        ("Edit selected task", "Return"),
-        ("Reorder selected task", "⌥↑  ⌥↓"),
-        ("Switch between lists", "⌘1…9")
+        ("Delete selected task", "⌫"),
+        ("Rename current list", "⌘L"),
+        ("Move task between lists", "⌃⌘←  ⌃⌘→"),
+        ("Toggle completed tasks", "⇧⌘C"),
+        ("Clear completed tasks", "⌥⌘⌫")
     ]
 
     var body: some View {
@@ -283,7 +329,7 @@ struct GuideView: View {
     private var nextIdeasSection: some View {
         guideSection(
             title: "Good Next Shortcut Ideas",
-            subtitle: "Ideas only — these require task selection, search, or undo support before activation."
+            subtitle: "Ideas only — the shortcuts above are active now; these are possible later additions."
         ) {
             LazyVGrid(columns: columns, spacing: 8) {
                 ForEach(nextShortcutIdeas, id: \.0) { idea in

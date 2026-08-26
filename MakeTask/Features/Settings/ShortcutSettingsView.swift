@@ -59,6 +59,14 @@ struct ShortcutSettingsView: View {
                 shortcutRow("Hide Current Note", shortcut: "⌘W")
                 shortcutRow("Collapse Current Note", shortcut: "⌘M")
                 shortcutRow("Show/Hide All Notes", shortcut: "⇧⌘H")
+                shortcutRow("Search Tasks", shortcut: "⌘F")
+                shortcutRow("Undo Last Action", shortcut: "⌘Z")
+                shortcutRow("Delete Current Note", shortcut: "⌘⌫")
+                shortcutRow("Select Task", shortcut: "↑ / ↓")
+                shortcutRow("Complete Selected Task", shortcut: "Space")
+                shortcutRow("Edit Selected Task", shortcut: "Return")
+                shortcutRow("Reorder Selected Task", shortcut: "⌥↑ / ⌥↓")
+                shortcutRow("Switch Lists", shortcut: "⌘1…9")
             } header: {
                 Text("App Shortcuts")
             }

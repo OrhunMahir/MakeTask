@@ -15,9 +15,6 @@ struct NoteBackground: View {
 
             color.tint
                 .opacity(settings.transparencyEnabled ? 0.18 : 0.12)
-
-            Color(nsColor: .windowBackgroundColor)
-                .opacity((1 - settings.noteOpacity) * 0.55)
         }
     }
 }

@@ -31,7 +31,7 @@ Deleting a list cascades to its tasks. There is intentionally no singleton Inbox
 
 Window geometry lives with `TodoList` because each list maps one-to-one to a note window. The persisted geometry is `(x, top, expandedWidth, expandedHeight)`. Using `top` instead of AppKit's lower-left `y` keeps the visual header anchor stable across collapse and expand transitions.
 
-Task ordering uses a persisted `Double`. Current operations normalize the affected list to contiguous values after drag and drop, avoiding gaps or unbounded fractional insertions.
+Task ordering uses a persisted `Double`. Row-level drop delegates reorder as the pointer enters a target row, including the downward-insertion adjustment expected by native lists. The affected source and target lists are normalized after a move, avoiding gaps or unbounded fractional insertions.
 
 ### UserDefaults
 
@@ -44,7 +44,7 @@ Task ordering uses a persisted `Double`. Current operations normalize the affect
 
 ### Ephemeral state
 
-`WindowCoordinator` owns the live mapping from list UUID to `NoteWindowController`, the active list, focus requests, the current Quick Add controller, and the registered global hotkey.
+`WindowCoordinator` owns the live mapping from list UUID to `NoteWindowController`, the active list, keyboard-command dispatch, drag-session state, the bounded local undo history, focus requests, the current Quick Add controller, and the registered global hotkeys. Per-note search text and keyboard task selection stay inside `NoteView` because they are presentation state.
 
 ## Window architecture
 
@@ -52,7 +52,7 @@ Task ordering uses a persisted `Double`. Current operations normalize the affect
 
 `FloatingNotePanel` is an `NSPanel` subclass that can become key but not main. It has a borderless, resizable style and an `NSHostingView` containing `NoteView`.
 
-Traffic-light controls are absent because the panel is borderless. The SwiftUI header exposes a compact ellipsis menu for rename, color, window level, collapse, hide, and delete actions. A small AppKit drag-area bridge confines window movement and the double-click roll-up gesture to otherwise empty header space; the task body never moves the panel.
+Traffic-light controls are absent because the panel is borderless. The SwiftUI header exposes a compact ellipsis menu for rename, color, window level, collapse, hide, Guide access, and delete actions. A small AppKit drag-area bridge confines window movement and the double-click roll-up gesture to otherwise empty header space; the task body never moves the panel.
 
 Window modes map to AppKit as follows:
 
@@ -65,6 +65,8 @@ New notes default to Normal Window. Stay on Desktop and Always on Top are explic
 | Normal Window | Normal | Move to active Space |
 
 Move and resize delegate events update the in-memory model immediately. Saves are debounced by 250 milliseconds, with a final synchronous model save when live resize ends. There is no timer or polling loop.
+
+Each note controller observes the persisted transparency toggle and opacity value. It applies opacity at the `NSWindow` level, so the complete note—including material, text, and controls—updates immediately without recreating the panel. Disabling transparency restores an alpha value of `1.0` and a solid SwiftUI background.
 
 ### Collapse and expand
 
@@ -90,7 +92,7 @@ Quick Add is a short-lived borderless floating panel centered on the screen cont
 
 ## Global shortcut
 
-`GlobalHotKeyService` installs a Carbon application event handler and filters events by `EventHotKeyID`, allowing independent Quick Add and note-visibility registrations. Carbon hotkeys are native, efficient, global, and do not require an accessibility event tap. A local AppKit key monitor handles note-scoped commands such as hide and collapse when a note panel is active. Registration failures are surfaced by `WindowCoordinator.errorMessage` rather than silently ignored.
+`GlobalHotKeyService` installs a Carbon application event handler and filters events by `EventHotKeyID`, allowing independent Quick Add and note-visibility registrations. Carbon hotkeys are native, efficient, global, and do not require an accessibility event tap. A local AppKit key monitor handles note-scoped commands such as hide, collapse, search, keyboard task selection, editing, reordering, undo, deletion confirmation, and numbered list switching while respecting active text fields. Registration failures are surfaced by `WindowCoordinator.errorMessage` rather than silently ignored.
 
 ## Performance characteristics
 

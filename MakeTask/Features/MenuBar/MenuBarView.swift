@@ -43,6 +43,13 @@ struct MenuBarView: View {
         .keyboardShortcut("n", modifiers: .command)
 
         Button {
+            coordinator.sendKeyboardCommand(.search, activatingNote: true)
+        } label: {
+            Label("Search Tasks", systemImage: "magnifyingglass")
+        }
+        .keyboardShortcut("f", modifiers: .command)
+
+        Button {
             _ = coordinator.createList()
         } label: {
             Label("New List", systemImage: "plus.rectangle.on.rectangle")
@@ -73,6 +80,34 @@ struct MenuBarView: View {
                 )
             }
             .keyboardShortcut("h", modifiers: [.command, .shift])
+
+            Menu {
+                ForEach(Array(lists.prefix(9).enumerated()), id: \.element.id) { index, list in
+                    Button {
+                        coordinator.activateList(at: index)
+                    } label: {
+                        Label(
+                            "\(list.title)    ⌘\(index + 1)",
+                            systemImage: list.isHidden ? "eye.slash" : "rectangle.on.rectangle"
+                        )
+                    }
+                }
+            } label: {
+                Label("Switch List", systemImage: "square.stack")
+            }
+        }
+
+        Button {
+            coordinator.undoLastAction()
+        } label: {
+            Label("Undo Last Action — ⌘Z", systemImage: "arrow.uturn.backward")
+        }
+        .disabled(!coordinator.canUndo)
+
+        Button(role: .destructive) {
+            coordinator.sendKeyboardCommand(.requestListDeletion, activatingNote: true)
+        } label: {
+            Label("Delete Current Note… — ⌘⌫", systemImage: "trash")
         }
 
         Divider()

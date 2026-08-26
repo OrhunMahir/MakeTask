@@ -12,7 +12,8 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - Click a list title to rename it inline; new lists start in rename mode
 - Create a named list directly inside Quick Add without leaving the keyboard flow
 - Create, complete, uncomplete, delete, and reorder tasks
-- Drag tasks between note windows with a highlighted held-task preview
+- Search, select, complete, edit, reorder, and undo tasks from the keyboard
+- Drag tasks within and between note windows with live row reordering and a highlighted preview
 - Drag a note only from the empty header area, so task dragging never moves the window
 - Double-click the empty note header area to collapse it to its title bar
 - Collapse and hide are separate, persisted states
@@ -21,12 +22,13 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - Menu bar controls; no main window is required
 - Menu bar command center with visible shortcut labels
 - Built-in Guide interface for shortcuts, gestures, hide/collapse behavior, and quick actions
+- Open Guide from the menu bar, Settings, or any note's ellipsis menu
 - Global Quick Add, defaulting to `⌘⇧Space`
 - Quick Add can reveal a hidden target note and automatically restores it after adding a task
 - Hidden notes remain visible in the menu bar and `⌘⇧H` shows them again
 - Configurable global Quick Add key and modifiers
 - SwiftData persistence for tasks and note window state
-- System, light, and dark appearance with native vibrancy
+- System, light, and dark appearance with native vibrancy and live 45–100% note-window opacity
 - Launch at Login through `SMAppService`
 - Fully offline; no account, analytics, telemetry, or network entitlement
 
@@ -135,6 +137,14 @@ More detail is available in [ARCHITECTURE.md](ARCHITECTURE.md).
 | Hide active note | `⌘W` |
 | Collapse/expand active note | `⌘M` |
 | Show/hide all notes | `⌘⇧H` |
+| Search tasks in active note | `⌘F` |
+| Undo last MakeTask action | `⌘Z` |
+| Delete active note (with confirmation) | `⌘Delete` |
+| Select previous/next task | `↑` / `↓` |
+| Complete selected task | `Space` |
+| Edit selected task | `Return` |
+| Reorder selected task | `⌥↑` / `⌥↓` |
+| Switch to list 1–9 | `⌘1`…`⌘9` |
 | Cancel Quick Add or task entry | `Escape` |
 
 ## Privacy
@@ -144,7 +154,7 @@ MakeTask makes no network requests and its app target has outgoing network acces
 ## Next phases
 
 - One-command `maketask` terminal launcher; see [ROADMAP.md](ROADMAP.md)
-- Task title and notes editor
+- Task notes editor
 - Due dates, priorities, and subtasks
 - Configurable completed-task delay
 - Broader shortcut recording

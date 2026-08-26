@@ -101,7 +101,8 @@ final class AppSettings: ObservableObject {
         ) ?? .system
 
         transparencyEnabled = defaults.object(forKey: Key.transparency) as? Bool ?? true
-        noteOpacity = defaults.object(forKey: Key.noteOpacity) as? Double ?? 0.92
+        let savedOpacity = defaults.object(forKey: Key.noteOpacity) as? Double ?? 0.92
+        noteOpacity = min(max(savedOpacity, 0.45), 1.0)
         hideCompletedTasks = defaults.bool(forKey: Key.hideCompleted)
         defaultListID = defaults.string(forKey: Key.defaultListID).flatMap(UUID.init(uuidString:))
         lastQuickCaptureListID = defaults.string(forKey: Key.lastQuickCaptureListID).flatMap(UUID.init(uuidString:))

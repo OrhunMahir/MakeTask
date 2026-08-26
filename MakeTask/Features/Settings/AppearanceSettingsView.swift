@@ -15,17 +15,21 @@ struct AppearanceSettingsView: View {
             }
 
             Section {
-                Toggle("Use transparency and blur", isOn: $settings.transparencyEnabled)
+                Toggle("Transparent note windows", isOn: $settings.transparencyEnabled)
 
                 HStack {
-                    Text("Note opacity")
-                    Slider(value: $settings.noteOpacity, in: 0.70...1.0, step: 0.02)
+                    Text("Window opacity")
+                    Slider(value: $settings.noteOpacity, in: 0.45...1.0, step: 0.05)
                     Text(settings.noteOpacity.formatted(.percent.precision(.fractionLength(0))))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                         .frame(width: 42, alignment: .trailing)
                 }
                 .disabled(!settings.transparencyEnabled)
+
+                Text("Transparency applies immediately to every open note window. Text and controls fade together with the window.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             } header: {
                 Text("Desktop Notes")
             }

@@ -37,6 +37,11 @@ struct MakeTaskApp: App {
             }
 
             CommandMenu("Note") {
+                Button("Search Tasks") {
+                    appDelegate.windowCoordinator.sendKeyboardCommand(.search, activatingNote: true)
+                }
+                .keyboardShortcut("f", modifiers: .command)
+
                 Button("Hide Current Note") {
                     appDelegate.windowCoordinator.hideActiveNote()
                 }
@@ -51,6 +56,17 @@ struct MakeTaskApp: App {
                     appDelegate.windowCoordinator.toggleAllNotesVisibility()
                 }
                 .keyboardShortcut("h", modifiers: [.command, .shift])
+
+                Divider()
+
+                Button("Undo Last MakeTask Action") {
+                    appDelegate.windowCoordinator.undoLastAction()
+                }
+                .disabled(!appDelegate.windowCoordinator.canUndo)
+
+                Button("Delete Current Note…  ⌘⌫", role: .destructive) {
+                    appDelegate.windowCoordinator.sendKeyboardCommand(.requestListDeletion, activatingNote: true)
+                }
 
                 Divider()
 

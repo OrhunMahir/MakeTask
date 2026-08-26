@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftData
 import SwiftUI
 
@@ -8,6 +9,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
 
     private unowned let coordinator: WindowCoordinator
     private var pendingSave: DispatchWorkItem?
+    private var appearanceSubscriptions: Set<AnyCancellable> = []
 
     init(
         list: TodoList,
@@ -48,6 +50,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
             .environmentObject(settings)
 
         panel.contentView = NSHostingView(rootView: rootView)
+        observeWindowAppearance(settings: settings)
         applyWindowMode()
 
         if list.isCollapsed {
@@ -88,6 +91,17 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
             panel.level = .normal
             panel.collectionBehavior = [.moveToActiveSpace]
         }
+    }
+
+    private func observeWindowAppearance(settings: AppSettings) {
+        settings.$transparencyEnabled
+            .combineLatest(settings.$noteOpacity)
+            .sink { [weak panel = window] transparencyEnabled, opacity in
+                guard let panel else { return }
+                panel.alphaValue = transparencyEnabled ? CGFloat(opacity) : 1
+                panel.invalidateShadow()
+            }
+            .store(in: &appearanceSubscriptions)
     }
 
     func setCollapsed(_ collapsed: Bool, animated: Bool, persist: Bool = true) {

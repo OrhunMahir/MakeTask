@@ -5,7 +5,9 @@ struct NoteHeaderView: View {
     @Bindable var list: TodoList
     @Binding var isConfirmingDelete: Bool
 
+    @Environment(\.openSettings) private var openSettings
     @EnvironmentObject private var coordinator: WindowCoordinator
+    @EnvironmentObject private var settings: AppSettings
     @State private var isRenaming = false
     @State private var titleDraft = ""
     @FocusState private var isTitleFocused: Bool
@@ -90,6 +92,15 @@ struct NoteHeaderView: View {
 
                 Button("Hide Note") {
                     coordinator.hide(list)
+                }
+
+                Divider()
+
+                Button {
+                    settings.selectedSettingsTab = .guide
+                    openSettings()
+                } label: {
+                    Label("Guide & Shortcuts…", systemImage: "questionmark.circle")
                 }
 
                 Divider()
