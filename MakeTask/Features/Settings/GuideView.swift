@@ -188,7 +188,7 @@ struct GuideView: View {
         InteractionItem(
             icon: "checkmark.circle",
             title: "Click a task's circle",
-            detail: "Complete or uncomplete the task, move it softly between sections, and play your selected sound."
+            detail: "Complete or uncomplete the task, move it softly between sections, and play your selected sound at the volume set in General settings."
         ),
         InteractionItem(
             icon: "note.text",

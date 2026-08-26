@@ -73,7 +73,6 @@ struct TaskRowView: View {
             }
         }
         .zIndex(isDragging ? 2 : 0)
-        .animation(.easeOut(duration: 0.12), value: isDragging)
         .animation(.easeOut(duration: 0.12), value: isSelected)
         .animation(.easeInOut(duration: 0.18), value: isExpanded)
         .onHover { isHovering = $0 }
@@ -167,14 +166,30 @@ struct TaskRowView: View {
                             .transition(.opacity)
                     }
                 }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedTaskID = task.id
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            expandedTaskID = isExpanded ? nil : task.id
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .overlay {
+                    TaskDragSourceView(
+                        taskID: task.id,
+                        title: task.title,
+                        tint: NSColor(list.noteColor.tint),
+                        previewWidth: max(rowSize.width, 220),
+                        onClick: {
+                            selectedTaskID = task.id
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                expandedTaskID = isExpanded ? nil : task.id
+                            }
+                        },
+                        onDragBegan: {
+                            selectedTaskID = task.id
+                            expandedTaskID = nil
+                            coordinator.beginTaskDrag(task)
+                        },
+                        onDragEnded: {
+                            coordinator.endTaskDrag()
                         }
-                    }
+                    )
+                }
             }
 
             if isHovering && !isEditing {
@@ -193,33 +208,6 @@ struct TaskRowView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
         .contentShape(Rectangle())
-        .onDrag {
-            selectedTaskID = task.id
-            expandedTaskID = nil
-            coordinator.beginTaskDrag(task)
-            return NSItemProvider(object: task.id.uuidString as NSString)
-        } preview: {
-            dragPreview
-        }
-    }
-
-    private var dragPreview: some View {
-        HStack(spacing: 8) {
-            Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(list.noteColor.tint)
-            Text(task.title)
-                .lineLimit(1)
-        }
-        .font(.system(size: 13.5, weight: .medium))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(width: max(rowSize.width, 220), alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 9))
-        .overlay {
-            RoundedRectangle(cornerRadius: 9)
-                .stroke(list.noteColor.tint.opacity(0.95), lineWidth: 2)
-        }
-        .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
     }
 
     private func beginEditing() {

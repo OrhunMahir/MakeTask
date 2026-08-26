@@ -69,9 +69,15 @@ final class AppSettings: ObservableObject {
             }
         }
 
-        func play() {
-            guard let systemSoundName else { return }
-            NSSound(named: NSSound.Name(systemSoundName))?.play()
+        func play(volume: Double) {
+            guard
+                let systemSoundName,
+                let sound = NSSound(named: NSSound.Name(systemSoundName))
+            else { return }
+
+            sound.volume = Float(min(max(volume, 0), 1))
+            sound.stop()
+            sound.play()
         }
     }
 
@@ -81,6 +87,7 @@ final class AppSettings: ObservableObject {
         static let noteOpacity = "noteOpacity"
         static let hideCompleted = "hideCompleted"
         static let completionSound = "completionSound"
+        static let completionSoundVolume = "completionSoundVolume"
         static let defaultListID = "defaultListID"
         static let lastQuickCaptureListID = "lastQuickCaptureListID"
         static let quickAddKeyCode = "quickAddKeyCode"
@@ -115,6 +122,10 @@ final class AppSettings: ObservableObject {
 
     @Published var completionSound: CompletionSound {
         didSet { defaults.set(completionSound.rawValue, forKey: Key.completionSound) }
+    }
+
+    @Published var completionSoundVolume: Double {
+        didSet { defaults.set(completionSoundVolume, forKey: Key.completionSoundVolume) }
     }
 
     @Published var defaultListID: UUID? {
@@ -159,6 +170,8 @@ final class AppSettings: ObservableObject {
         completionSound = CompletionSound(
             rawValue: defaults.string(forKey: Key.completionSound) ?? CompletionSound.pop.rawValue
         ) ?? .pop
+        let savedSoundVolume = defaults.object(forKey: Key.completionSoundVolume) as? Double ?? 0.65
+        completionSoundVolume = min(max(savedSoundVolume, 0), 1)
         defaultListID = defaults.string(forKey: Key.defaultListID).flatMap(UUID.init(uuidString:))
         lastQuickCaptureListID = defaults.string(forKey: Key.lastQuickCaptureListID).flatMap(UUID.init(uuidString:))
 
@@ -199,6 +212,10 @@ final class AppSettings: ObservableObject {
         case .dark:
             NSApp.appearance = NSAppearance(named: .darkAqua)
         }
+    }
+
+    func playCompletionSound() {
+        completionSound.play(volume: completionSoundVolume)
     }
 
     static func keyName(for keyCode: UInt32) -> String {

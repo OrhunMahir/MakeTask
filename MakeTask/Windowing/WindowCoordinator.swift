@@ -453,7 +453,7 @@ final class WindowCoordinator: ObservableObject {
         let updatedCompleted = task.isCompleted
         let updatedCompletedAt = task.completedAt
         if task.isCompleted {
-            settings.completionSound.play()
+            settings.playCompletionSound()
         }
         scheduleNextDueDateRefresh()
         saveContext()

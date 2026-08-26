@@ -15,9 +15,9 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - Click a task title to open its notes and optional date/time details; only the circular checkbox changes completion
 - Show a red **Missed due date** warning on incomplete overdue tasks
 - Collapse or expand the Completed section independently; its state is persisted per list
-- Choose from eight native completion sounds—including softer Purr, Bottle, Blow, and Ping options—or disable sound in General settings
+- Choose from eight native completion sounds—including softer Purr, Bottle, Blow, and Ping options—adjust their volume, or disable sound in General settings
 - Search, select, complete, edit, reorder, and undo tasks from the keyboard
-- Drag tasks within and between note windows with a lifted card preview, a live placeholder gap, and midpoint-based insertion
+- Drag tasks within and between note windows with an AppKit-powered lifted card that disappears immediately on release, a live placeholder gap, and midpoint-based insertion
 - Drag a note only from the empty header area, so task dragging never moves the window
 - Double-click the empty note header area to collapse it to its title bar
 - Collapse and hide are separate, persisted states

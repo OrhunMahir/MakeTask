@@ -33,12 +33,29 @@ struct GeneralSettingsView: View {
                     }
 
                     Button {
-                        settings.completionSound.play()
+                        settings.playCompletionSound()
                     } label: {
                         Label("Preview", systemImage: "speaker.wave.2")
                     }
                     .disabled(settings.completionSound == .none)
                 }
+
+                HStack(spacing: 12) {
+                    Label("Sound volume", systemImage: volumeSymbol)
+                        .frame(width: 132, alignment: .leading)
+
+                    Slider(
+                        value: $settings.completionSoundVolume,
+                        in: 0...1,
+                        step: 0.05
+                    )
+
+                    Text("\(Int((settings.completionSoundVolume * 100).rounded()))%")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(width: 42, alignment: .trailing)
+                }
+                .disabled(settings.completionSound == .none)
             } header: {
                 Text("Tasks")
             }
@@ -73,5 +90,18 @@ struct GeneralSettingsView: View {
             get: { launchAtLogin.errorMessage != nil },
             set: { if !$0 { launchAtLogin.errorMessage = nil } }
         )
+    }
+
+    private var volumeSymbol: String {
+        switch settings.completionSoundVolume {
+        case ...0:
+            "speaker.slash"
+        case ..<0.35:
+            "speaker.wave.1"
+        case ..<0.7:
+            "speaker.wave.2"
+        default:
+            "speaker.wave.3"
+        }
     }
 }

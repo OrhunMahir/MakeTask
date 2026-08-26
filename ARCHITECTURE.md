@@ -31,7 +31,7 @@ Deleting a list cascades to its tasks. There is intentionally no singleton Inbox
 
 Window geometry lives with `TodoList` because each list maps one-to-one to a note window. The persisted geometry is `(x, top, expandedWidth, expandedHeight)`. Using `top` instead of AppKit's lower-left `y` keeps the visual header anchor stable across collapse and expand transitions. Each list also persists whether its Completed section is expanded.
 
-Task ordering uses a persisted `Double`. Row-level drop delegates compare the pointer with each target row's midpoint and move an invisible source placeholder above or below that row. This makes surrounding rows animate out of the way while the outlined system drag card follows the pointer. Live hover changes stay in the model context and are saved once when the drop finishes, keeping the interaction responsive. The affected source and target lists are normalized after a move, avoiding gaps or unbounded fractional insertions.
+Task ordering uses a persisted `Double`. An `NSViewRepresentable` starts the native AppKit dragging session and disables the failed-drop return animation, so the lifted card ends as soon as the pointer is released. Row-level drop delegates compare the pointer with each target row's midpoint and move an invisible source placeholder above or below that row. Live hover changes stay in the model context and are saved once when the drop finishes, keeping the interaction responsive. The affected source and target lists are normalized after a move, avoiding gaps or unbounded fractional insertions.
 
 ### UserDefaults
 
@@ -39,7 +39,7 @@ Task ordering uses a persisted `Double`. Row-level drop delegates compare the po
 
 - appearance and note opacity;
 - completed-task visibility;
-- completion sound selection;
+- completion sound selection and volume;
 - default and last-used Quick Add lists;
 - global shortcut key and modifiers.
 
