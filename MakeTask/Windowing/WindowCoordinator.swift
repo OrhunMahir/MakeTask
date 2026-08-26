@@ -14,6 +14,11 @@ enum NoteKeyboardCommand: Equatable {
     case requestListDeletion
 }
 
+enum TaskDropEdge: Equatable {
+    case top
+    case bottom
+}
+
 struct NoteKeyboardCommandEvent {
     let id = UUID()
     let listID: UUID
@@ -31,6 +36,8 @@ final class WindowCoordinator: ObservableObject {
     @Published var renameListID: UUID?
     @Published var noteKeyboardCommand: NoteKeyboardCommandEvent?
     @Published private(set) var draggedTaskID: UUID?
+    @Published private(set) var taskDropTargetID: UUID?
+    @Published private(set) var taskDropEdge: TaskDropEdge = .top
     @Published private(set) var canUndo = false
     @Published var errorMessage: String?
 
@@ -93,6 +100,7 @@ final class WindowCoordinator: ObservableObject {
         let windowWidth: Double
         let windowHeight: Double
         let isCollapsed: Bool
+        let isCompletedSectionCollapsed: Bool
         let isHidden: Bool
         let windowMode: WindowMode
         let tasks: [TaskSnapshot]
@@ -111,6 +119,7 @@ final class WindowCoordinator: ObservableObject {
             windowWidth = list.windowWidth
             windowHeight = list.windowHeight
             isCollapsed = list.isCollapsed
+            isCompletedSectionCollapsed = list.isCompletedSectionCollapsed
             isHidden = list.isHidden
             windowMode = list.windowMode
             tasks = list.tasks.map(TaskSnapshot.init)
@@ -394,6 +403,9 @@ final class WindowCoordinator: ObservableObject {
         let taskID = task.id
         task.isCompleted.toggle()
         task.completedAt = task.isCompleted ? .now : nil
+        if task.isCompleted {
+            settings.completionSound.play()
+        }
         saveContext()
         registerUndoAction(named: task.isCompleted ? "Complete Task" : "Uncomplete Task") { [weak self] in
             guard let self, let currentTask = self.fetchTask(id: taskID) else { return }
@@ -454,9 +466,29 @@ final class WindowCoordinator: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: cleanup)
     }
 
+    func updateTaskDropTarget(draggedTaskID: UUID, targetTask: TodoTask, targetList: TodoList) {
+        taskDropTargetID = targetTask.id
+
+        guard let draggedTask = fetchTask(id: draggedTaskID),
+              draggedTask.list?.id == targetList.id,
+              let sourceIndex = targetList.orderedTasks.firstIndex(where: { $0.id == draggedTaskID }),
+              let targetIndex = targetList.orderedTasks.firstIndex(where: { $0.id == targetTask.id }) else {
+            taskDropEdge = .top
+            return
+        }
+
+        taskDropEdge = sourceIndex < targetIndex ? .bottom : .top
+    }
+
+    func clearTaskDropTarget(_ taskID: UUID) {
+        guard taskDropTargetID == taskID else { return }
+        taskDropTargetID = nil
+    }
+
     func endTaskDrag() {
         taskDragCleanup?.cancel()
         taskDragCleanup = nil
+        taskDropTargetID = nil
         guard let snapshot = taskDragSnapshot else {
             draggedTaskID = nil
             return
@@ -624,7 +656,7 @@ final class WindowCoordinator: ObservableObject {
             }
 
             if (event.keyCode == UInt16(kVK_Delete) || event.keyCode == UInt16(kVK_ForwardDelete)),
-               modifiers == [.command], notePanelIsKey, !isEditingText, !event.isARepeat {
+               modifiers == [.command], notePanelIsKey, !event.isARepeat {
                 self.sendKeyboardCommand(.requestListDeletion)
                 return nil
             }
@@ -723,6 +755,7 @@ final class WindowCoordinator: ObservableObject {
             windowWidth: snapshot.windowWidth,
             windowHeight: snapshot.windowHeight,
             isCollapsed: snapshot.isCollapsed,
+            isCompletedSectionCollapsed: snapshot.isCompletedSectionCollapsed,
             isHidden: snapshot.isHidden,
             windowMode: snapshot.windowMode
         )

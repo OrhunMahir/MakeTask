@@ -28,11 +28,47 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    enum CompletionSound: String, CaseIterable, Identifiable {
+        case none
+        case pop
+        case tink
+        case glass
+        case funk
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .none: "None"
+            case .pop: "Pop"
+            case .tink: "Tink"
+            case .glass: "Glass"
+            case .funk: "Funk"
+            }
+        }
+
+        private var systemSoundName: String? {
+            switch self {
+            case .none: nil
+            case .pop: "Pop"
+            case .tink: "Tink"
+            case .glass: "Glass"
+            case .funk: "Funk"
+            }
+        }
+
+        func play() {
+            guard let systemSoundName else { return }
+            NSSound(named: NSSound.Name(systemSoundName))?.play()
+        }
+    }
+
     private enum Key {
         static let appearance = "appearance"
         static let transparency = "transparency"
         static let noteOpacity = "noteOpacity"
         static let hideCompleted = "hideCompleted"
+        static let completionSound = "completionSound"
         static let defaultListID = "defaultListID"
         static let lastQuickCaptureListID = "lastQuickCaptureListID"
         static let quickAddKeyCode = "quickAddKeyCode"
@@ -63,6 +99,10 @@ final class AppSettings: ObservableObject {
 
     @Published var hideCompletedTasks: Bool {
         didSet { defaults.set(hideCompletedTasks, forKey: Key.hideCompleted) }
+    }
+
+    @Published var completionSound: CompletionSound {
+        didSet { defaults.set(completionSound.rawValue, forKey: Key.completionSound) }
     }
 
     @Published var defaultListID: UUID? {
@@ -104,6 +144,9 @@ final class AppSettings: ObservableObject {
         let savedOpacity = defaults.object(forKey: Key.noteOpacity) as? Double ?? 0.92
         noteOpacity = min(max(savedOpacity, 0.45), 1.0)
         hideCompletedTasks = defaults.bool(forKey: Key.hideCompleted)
+        completionSound = CompletionSound(
+            rawValue: defaults.string(forKey: Key.completionSound) ?? CompletionSound.pop.rawValue
+        ) ?? .pop
         defaultListID = defaults.string(forKey: Key.defaultListID).flatMap(UUID.init(uuidString:))
         lastQuickCaptureListID = defaults.string(forKey: Key.lastQuickCaptureListID).flatMap(UUID.init(uuidString:))
 

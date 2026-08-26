@@ -10,8 +10,12 @@ struct NoteView: View {
     @State private var isConfirmingDelete = false
     @State private var selectedTaskID: UUID?
     @State private var editingTaskID: UUID?
+    @State private var expandedTaskID: UUID?
     @State private var isSearching = false
     @State private var searchText = ""
+    @State private var taskRowFrames: [UUID: CGRect] = [:]
+    @State private var taskViewportHeight: CGFloat = 0
+    @State private var selectionMovement = 0
     @FocusState private var isNewTaskFocused: Bool
     @FocusState private var isSearchFocused: Bool
 
@@ -24,7 +28,16 @@ struct NoteView: View {
     }
 
     private var keyboardTasks: [TodoTask] {
-        activeTasks + (settings.hideCompletedTasks ? [] : completedTasks)
+        let canSelectCompleted = !settings.hideCompletedTasks && !list.isCompletedSectionCollapsed
+        return activeTasks + (canSelectCompleted ? completedTasks : [])
+    }
+
+    private var visibleCompletedTasks: [TodoTask] {
+        settings.hideCompletedTasks ? [] : completedTasks
+    }
+
+    private var taskAnimationValue: [String] {
+        list.orderedTasks.map { "\($0.id.uuidString)-\($0.isCompleted)" }
     }
 
     var body: some View {
@@ -47,7 +60,7 @@ struct NoteView: View {
                         LazyVStack(spacing: 0) {
                             if list.tasks.isEmpty {
                                 emptyState(title: "No tasks yet", icon: "checklist")
-                            } else if keyboardTasks.isEmpty {
+                            } else if activeTasks.isEmpty && visibleCompletedTasks.isEmpty {
                                 emptyState(
                                     title: hasSearchQuery ? "No matching tasks" : "No active tasks",
                                     icon: hasSearchQuery ? "magnifyingglass" : "checkmark.circle"
@@ -58,25 +71,43 @@ struct NoteView: View {
                                         task: task,
                                         list: list,
                                         selectedTaskID: $selectedTaskID,
-                                        editingTaskID: $editingTaskID
+                                        editingTaskID: $editingTaskID,
+                                        expandedTaskID: $expandedTaskID
                                     )
                                 }
 
-                                if !settings.hideCompletedTasks && !completedTasks.isEmpty {
+                                if !visibleCompletedTasks.isEmpty {
                                     completedHeader
-                                    ForEach(completedTasks) { task in
-                                        TaskRowView(
-                                            task: task,
-                                            list: list,
-                                            selectedTaskID: $selectedTaskID,
-                                            editingTaskID: $editingTaskID
-                                        )
+
+                                    if !list.isCompletedSectionCollapsed {
+                                        ForEach(visibleCompletedTasks) { task in
+                                            TaskRowView(
+                                                task: task,
+                                                list: list,
+                                                selectedTaskID: $selectedTaskID,
+                                                editingTaskID: $editingTaskID,
+                                                expandedTaskID: $expandedTaskID
+                                            )
+                                            .transition(
+                                                .opacity.combined(with: .move(edge: .top))
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                         .padding(.vertical, 6)
                         .frame(maxWidth: .infinity)
+                        .animation(.easeInOut(duration: 0.34), value: taskAnimationValue)
+                    }
+                    .coordinateSpace(name: "task-scroll-\(list.id.uuidString)")
+                    .background {
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: TaskViewportHeightPreferenceKey.self,
+                                value: proxy.size.height
+                            )
+                        }
                     }
                     .onDrop(
                         of: [UTType.text],
@@ -84,9 +115,13 @@ struct NoteView: View {
                     )
                     .onChange(of: selectedTaskID) { _, taskID in
                         guard let taskID else { return }
-                        withAnimation(.easeInOut(duration: 0.16)) {
-                            scrollProxy.scrollTo(taskID, anchor: .center)
-                        }
+                        keepSelectionVisible(taskID, using: scrollProxy)
+                    }
+                    .onPreferenceChange(TaskRowFramePreferenceKey.self) { frames in
+                        taskRowFrames = frames
+                    }
+                    .onPreferenceChange(TaskViewportHeightPreferenceKey.self) { height in
+                        taskViewportHeight = height
                     }
                 }
 
@@ -105,7 +140,6 @@ struct NoteView: View {
             RoundedRectangle(cornerRadius: NoteWindowMetrics.cornerRadius, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.75)
         }
-        .animation(.easeInOut(duration: 0.18), value: list.isCollapsed)
         .animation(.easeInOut(duration: 0.16), value: isSearching)
         .onReceive(coordinator.$focusNewTaskListID) { listID in
             guard listID == list.id, !list.isCollapsed else { return }
@@ -122,6 +156,10 @@ struct NoteView: View {
             if let editingTaskID, !taskIDs.contains(editingTaskID) {
                 self.editingTaskID = nil
             }
+            if let expandedTaskID, !taskIDs.contains(expandedTaskID),
+               !completedTasks.contains(where: { $0.id == expandedTaskID }) {
+                self.expandedTaskID = nil
+            }
         }
         .confirmationDialog(
             "Delete “\(list.title)”?",
@@ -130,6 +168,7 @@ struct NoteView: View {
             Button("Delete List", role: .destructive) {
                 coordinator.deleteList(list)
             }
+            .keyboardShortcut(.defaultAction)
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("The list and all of its tasks will be deleted. Press ⌘Z immediately afterward to undo.")
@@ -189,18 +228,45 @@ struct NoteView: View {
     }
 
     private var completedHeader: some View {
-        HStack(spacing: 6) {
-            Text("Completed")
-                .font(.system(size: 10.5, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-            Rectangle()
-                .fill(Color.secondary.opacity(0.2))
-                .frame(height: 0.5)
+        Button {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                list.isCompletedSectionCollapsed.toggle()
+                if list.isCompletedSectionCollapsed,
+                   let selectedTaskID,
+                   completedTasks.contains(where: { $0.id == selectedTaskID }) {
+                    self.selectedTaskID = activeTasks.last?.id
+                }
+            }
+            coordinator.saveContext()
+        } label: {
+            HStack(spacing: 6) {
+                Image(
+                    systemName: list.isCompletedSectionCollapsed
+                        ? "chevron.right"
+                        : "chevron.down"
+                )
+                .font(.system(size: 8.5, weight: .bold))
+                .frame(width: 8)
+
+                Text("Completed")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .textCase(.uppercase)
+
+                Text("\(visibleCompletedTasks.count)")
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(height: 0.5)
+            }
+            .foregroundStyle(.secondary)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .padding(.horizontal, 12)
         .padding(.top, 12)
         .padding(.bottom, 4)
+        .help(list.isCompletedSectionCollapsed ? "Show completed tasks" : "Hide completed tasks")
     }
 
     private func matchesSearch(_ task: TodoTask) -> Bool {
@@ -225,7 +291,12 @@ struct NoteView: View {
             moveSelection(by: 1)
         case .toggleSelectedTask:
             guard let task = selectedTask(orSelectFirst: true) else { return }
-            coordinator.toggleTask(task)
+            if expandedTaskID == task.id {
+                expandedTaskID = nil
+            }
+            withAnimation(.easeInOut(duration: 0.34)) {
+                coordinator.toggleTask(task)
+            }
         case .editSelectedTask:
             guard let task = selectedTask(orSelectFirst: true) else { return }
             editingTaskID = task.id
@@ -246,11 +317,14 @@ struct NoteView: View {
 
         guard let selectedTaskID,
               let currentIndex = keyboardTasks.firstIndex(where: { $0.id == selectedTaskID }) else {
+            selectionMovement = offset
             self.selectedTaskID = offset < 0 ? keyboardTasks.last?.id : keyboardTasks.first?.id
             return
         }
 
         let nextIndex = min(max(currentIndex + offset, 0), keyboardTasks.count - 1)
+        guard nextIndex != currentIndex else { return }
+        selectionMovement = offset
         self.selectedTaskID = keyboardTasks[nextIndex].id
     }
 
@@ -282,5 +356,32 @@ struct NoteView: View {
         searchText = ""
         isSearching = false
         isSearchFocused = false
+    }
+
+    private func keepSelectionVisible(_ taskID: UUID, using scrollProxy: ScrollViewProxy) {
+        guard selectionMovement != 0 else { return }
+        let movement = selectionMovement
+
+        DispatchQueue.main.async {
+            defer { selectionMovement = 0 }
+
+            guard let frame = taskRowFrames[taskID], taskViewportHeight > 0 else {
+                withAnimation(.easeInOut(duration: 0.16)) {
+                    scrollProxy.scrollTo(taskID, anchor: movement > 0 ? .bottom : .top)
+                }
+                return
+            }
+
+            let viewportMargin: CGFloat = 3
+            if frame.minY < viewportMargin {
+                withAnimation(.easeInOut(duration: 0.16)) {
+                    scrollProxy.scrollTo(taskID, anchor: .top)
+                }
+            } else if frame.maxY > taskViewportHeight - viewportMargin {
+                withAnimation(.easeInOut(duration: 0.16)) {
+                    scrollProxy.scrollTo(taskID, anchor: .bottom)
+                }
+            }
+        }
     }
 }

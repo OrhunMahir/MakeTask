@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import QuartzCore
 import SwiftData
 import SwiftUI
 
@@ -10,6 +11,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
     private unowned let coordinator: WindowCoordinator
     private var pendingSave: DispatchWorkItem?
     private var appearanceSubscriptions: Set<AnyCancellable> = []
+    private var isChangingCollapseState = false
 
     init(
         list: TodoList,
@@ -105,7 +107,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func setCollapsed(_ collapsed: Bool, animated: Bool, persist: Bool = true) {
-        guard let panel = window else { return }
+        guard let panel = window, !isChangingCollapseState else { return }
         let currentFrame = panel.frame
         let top = currentFrame.maxY
 
@@ -114,7 +116,6 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
                 list.windowHeight = currentFrame.height
                 list.windowWidth = currentFrame.width
             }
-            list.isCollapsed = true
             panel.styleMask.remove(.resizable)
 
             let collapsedFrame = NSRect(
@@ -123,7 +124,27 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
                 width: currentFrame.width,
                 height: NoteWindowMetrics.headerHeight
             )
-            panel.setFrame(collapsedFrame, display: true, animate: animated)
+
+            if animated {
+                isChangingCollapseState = true
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.18
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    panel.animator().setFrame(collapsedFrame, display: true)
+                } completionHandler: { [weak self] in
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        self.list.isCollapsed = true
+                        self.isChangingCollapseState = false
+                        self.rememberCurrentFrame()
+                        if persist { self.coordinator.saveContext() }
+                    }
+                }
+                return
+            }
+
+            list.isCollapsed = true
+            panel.setFrame(collapsedFrame, display: true)
         } else {
             list.isCollapsed = false
             panel.styleMask.insert(.resizable)
@@ -135,7 +156,23 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
                 width: max(currentFrame.width, NoteWindowMetrics.minimumWidth),
                 height: expandedHeight
             )
-            panel.setFrame(expandedFrame, display: true, animate: animated)
+            if animated {
+                isChangingCollapseState = true
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.18
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    panel.animator().setFrame(expandedFrame, display: true)
+                } completionHandler: { [weak self] in
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        self.isChangingCollapseState = false
+                        self.rememberCurrentFrame()
+                        if persist { self.coordinator.saveContext() }
+                    }
+                }
+                return
+            }
+            panel.setFrame(expandedFrame, display: true)
         }
 
         rememberCurrentFrame()
@@ -167,7 +204,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
         list.windowX = frame.minX
         list.windowTop = frame.maxY
         list.windowWidth = frame.width
-        if !list.isCollapsed {
+        if !list.isCollapsed && !isChangingCollapseState {
             list.windowHeight = frame.height
         }
     }

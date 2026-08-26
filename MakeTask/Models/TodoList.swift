@@ -15,6 +15,7 @@ final class TodoList {
     var windowWidth: Double
     var windowHeight: Double
     var isCollapsed: Bool
+    var isCompletedSectionCollapsed: Bool = false
     var isHidden: Bool
     var windowModeRawValue: String
 
@@ -32,6 +33,7 @@ final class TodoList {
         windowWidth: Double = 320,
         windowHeight: Double = 360,
         isCollapsed: Bool = false,
+        isCompletedSectionCollapsed: Bool = false,
         isHidden: Bool = false,
         windowMode: WindowMode = .normal,
         tasks: [TodoTask] = []
@@ -46,6 +48,7 @@ final class TodoList {
         self.windowWidth = windowWidth
         self.windowHeight = windowHeight
         self.isCollapsed = isCollapsed
+        self.isCompletedSectionCollapsed = isCompletedSectionCollapsed
         self.isHidden = isHidden
         self.windowModeRawValue = windowMode.rawValue
         self.tasks = tasks

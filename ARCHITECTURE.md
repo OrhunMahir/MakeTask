@@ -29,7 +29,7 @@ TodoList 1 ──────── * TodoTask
 
 Deleting a list cascades to its tasks. There is intentionally no singleton Inbox, special-list identifier, or seed migration.
 
-Window geometry lives with `TodoList` because each list maps one-to-one to a note window. The persisted geometry is `(x, top, expandedWidth, expandedHeight)`. Using `top` instead of AppKit's lower-left `y` keeps the visual header anchor stable across collapse and expand transitions.
+Window geometry lives with `TodoList` because each list maps one-to-one to a note window. The persisted geometry is `(x, top, expandedWidth, expandedHeight)`. Using `top` instead of AppKit's lower-left `y` keeps the visual header anchor stable across collapse and expand transitions. Each list also persists whether its Completed section is expanded.
 
 Task ordering uses a persisted `Double`. Row-level drop delegates reorder as the pointer enters a target row, including the downward-insertion adjustment expected by native lists. The affected source and target lists are normalized after a move, avoiding gaps or unbounded fractional insertions.
 
@@ -39,6 +39,7 @@ Task ordering uses a persisted `Double`. Row-level drop delegates reorder as the
 
 - appearance and note opacity;
 - completed-task visibility;
+- completion sound selection;
 - default and last-used Quick Add lists;
 - global shortcut key and modifiers.
 
@@ -75,10 +76,10 @@ The header double-click calls `WindowCoordinator.toggleCollapse`, which delegate
 Collapse sequence:
 
 1. Preserve current expanded width and height.
-2. Set the durable `isCollapsed` flag.
-3. Remove resize behavior while rolled up.
-4. Keep `frame.maxY` fixed.
-5. Animate the frame to the 46-point header height.
+2. Remove resize behavior while rolled up.
+3. Keep `frame.maxY` fixed.
+4. Animate the frame to the 46-point header height without overwriting the saved expanded height.
+5. Set the durable `isCollapsed` flag when the frame animation completes.
 
 Expand performs the inverse and restores the last expanded height. The panel instance, SwiftUI hierarchy, and list identity remain alive during both transitions.
 
@@ -105,4 +106,4 @@ Quick Add is a short-lived borderless floating panel centered on the screen cont
 
 ## Extension points
 
-The unused `notes`, `dueDate`, and `priority` fields in `TodoTask` let the next UI phase ship without a destructive schema redesign. Task editor, completion policy, and optional sync features should be added as focused feature modules rather than expanding `WindowCoordinator` into presentation logic.
+`TaskDetailView` edits the persisted `notes` and optional `dueDate` fields inline. The unused `priority` field lets a later UI phase add prioritization without a destructive schema redesign. Completion policy and optional sync features should be added as focused feature modules rather than expanding `WindowCoordinator` into presentation logic.

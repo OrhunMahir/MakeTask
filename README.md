@@ -12,6 +12,9 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - Click a list title to rename it inline; new lists start in rename mode
 - Create a named list directly inside Quick Add without leaving the keyboard flow
 - Create, complete, uncomplete, delete, and reorder tasks
+- Click a task title to open its notes and optional date/time details; only the circular checkbox changes completion
+- Collapse or expand the Completed section independently; its state is persisted per list
+- Choose Pop, Tink, Glass, Funk, or no completion sound in General settings
 - Search, select, complete, edit, reorder, and undo tasks from the keyboard
 - Drag tasks within and between note windows with live row reordering and a highlighted preview
 - Drag a note only from the empty header area, so task dragging never moves the window
@@ -103,7 +106,8 @@ Hide is deliberately different: it calls `orderOut`, marks the list hidden, and 
 
 - identity, title, and ordering;
 - completed state and completion date;
-- notes, due date, and priority fields reserved for the next UI phase;
+- optional notes and due date/time details;
+- a priority field reserved for the next UI phase;
 - its parent list.
 
 There is no seeded or undeletable list. If every list is deleted, the menu and Quick Add surface display **Create your first list**.
@@ -154,8 +158,7 @@ MakeTask makes no network requests and its app target has outgoing network acces
 ## Next phases
 
 - One-command `maketask` terminal launcher; see [ROADMAP.md](ROADMAP.md)
-- Task notes editor
-- Due dates, priorities, and subtasks
+- Priorities and subtasks
 - Configurable completed-task delay
 - Broader shortcut recording
 - Optional local export/import

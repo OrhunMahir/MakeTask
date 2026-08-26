@@ -7,6 +7,7 @@ struct TaskRowView: View {
     let list: TodoList
     @Binding var selectedTaskID: UUID?
     @Binding var editingTaskID: UUID?
+    @Binding var expandedTaskID: UUID?
 
     @EnvironmentObject private var coordinator: WindowCoordinator
     @State private var isHovering = false
@@ -25,11 +26,112 @@ struct TaskRowView: View {
         coordinator.draggedTaskID == task.id
     }
 
+    private var isExpanded: Bool {
+        expandedTaskID == task.id
+    }
+
+    private var isDropTarget: Bool {
+        coordinator.taskDropTargetID == task.id && !isDragging
+    }
+
     var body: some View {
+        VStack(spacing: 0) {
+            taskHeader
+
+            if isExpanded && !isEditing {
+                TaskDetailView(task: task)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .contentShape(Rectangle())
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(list.noteColor.tint.opacity(isDragging ? 0.18 : (isSelected ? 0.09 : 0)))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(
+                    list.noteColor.tint.opacity(isDragging ? 1 : (isSelected ? 0.62 : 0)),
+                    lineWidth: isDragging ? 2 : (isSelected ? 1 : 0)
+                )
+        }
+        .overlay(alignment: coordinator.taskDropEdge == .top ? .top : .bottom) {
+            if isDropTarget {
+                Capsule()
+                    .fill(list.noteColor.tint)
+                    .frame(height: 3)
+                    .padding(.horizontal, 8)
+                    .shadow(color: list.noteColor.tint.opacity(0.35), radius: 3)
+                    .transition(.opacity)
+            }
+        }
+        .scaleEffect(isDragging ? 1.012 : 1)
+        .opacity(isDragging ? 0.78 : 1)
+        .shadow(
+            color: isDragging ? list.noteColor.tint.opacity(0.28) : .clear,
+            radius: isDragging ? 5 : 0,
+            y: isDragging ? 2 : 0
+        )
+        .zIndex(isDragging ? 2 : 0)
+        .animation(.easeOut(duration: 0.12), value: isDragging)
+        .animation(.easeOut(duration: 0.12), value: isSelected)
+        .animation(.easeInOut(duration: 0.18), value: isExpanded)
+        .onHover { isHovering = $0 }
+        .contextMenu {
+            Button("Edit Task") {
+                beginEditing()
+            }
+            Button(task.isCompleted ? "Mark Incomplete" : "Mark Complete") {
+                completeTask()
+            }
+            Divider()
+            Button("Delete Task", role: .destructive) {
+                coordinator.deleteTask(task)
+            }
+        }
+        .onDrop(
+            of: [UTType.text],
+            delegate: TaskRowDropDelegate(
+                targetTask: task,
+                targetList: list,
+                coordinator: coordinator
+            )
+        )
+        .background {
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: TaskRowFramePreferenceKey.self,
+                    value: [
+                        task.id: proxy.frame(
+                            in: .named("task-scroll-\(list.id.uuidString)")
+                        )
+                    ]
+                )
+            }
+        }
+        .onChange(of: isEditing) { _, editing in
+            if editing {
+                titleDraft = task.title
+                DispatchQueue.main.async {
+                    isTitleFocused = true
+                    DispatchQueue.main.async {
+                        (NSApp.keyWindow?.firstResponder as? NSTextView)?.selectAll(nil)
+                    }
+                }
+            }
+        }
+        .onChange(of: isTitleFocused) { _, focused in
+            if !focused && isEditing {
+                commitEditing()
+            }
+        }
+    }
+
+    private var taskHeader: some View {
         HStack(alignment: .center, spacing: 9) {
             Button {
                 selectedTaskID = task.id
-                coordinator.toggleTask(task)
+                completeTask()
             } label: {
                 Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 15, weight: .medium))
@@ -54,7 +156,9 @@ struct TaskRowView: View {
                     .contentShape(Rectangle())
                     .onTapGesture {
                         selectedTaskID = task.id
-                        coordinator.toggleTask(task)
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            expandedTaskID = isExpanded ? nil : task.id
+                        }
                     }
             }
 
@@ -74,63 +178,12 @@ struct TaskRowView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
         .contentShape(Rectangle())
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(list.noteColor.tint.opacity(isDragging ? 0.18 : (isSelected ? 0.09 : 0)))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(
-                    list.noteColor.tint.opacity(isDragging ? 1 : (isSelected ? 0.62 : 0)),
-                    lineWidth: isDragging ? 2 : (isSelected ? 1 : 0)
-                )
-        }
-        .scaleEffect(isDragging ? 1.012 : 1)
-        .animation(.easeOut(duration: 0.12), value: isDragging)
-        .animation(.easeOut(duration: 0.12), value: isSelected)
-        .onHover { isHovering = $0 }
-        .contextMenu {
-            Button("Edit Task") {
-                beginEditing()
-            }
-            Button(task.isCompleted ? "Mark Incomplete" : "Mark Complete") {
-                coordinator.toggleTask(task)
-            }
-            Divider()
-            Button("Delete Task", role: .destructive) {
-                coordinator.deleteTask(task)
-            }
-        }
         .onDrag {
             selectedTaskID = task.id
             coordinator.beginTaskDrag(task)
             return NSItemProvider(object: task.id.uuidString as NSString)
         } preview: {
             dragPreview
-        }
-        .onDrop(
-            of: [UTType.text],
-            delegate: TaskRowDropDelegate(
-                targetTask: task,
-                targetList: list,
-                coordinator: coordinator
-            )
-        )
-        .onChange(of: isEditing) { _, editing in
-            if editing {
-                titleDraft = task.title
-                DispatchQueue.main.async {
-                    isTitleFocused = true
-                    DispatchQueue.main.async {
-                        (NSApp.keyWindow?.firstResponder as? NSTextView)?.selectAll(nil)
-                    }
-                }
-            }
-        }
-        .onChange(of: isTitleFocused) { _, focused in
-            if !focused && isEditing {
-                commitEditing()
-            }
         }
     }
 
@@ -155,6 +208,15 @@ struct TaskRowView: View {
     private func beginEditing() {
         selectedTaskID = task.id
         editingTaskID = task.id
+    }
+
+    private func completeTask() {
+        if expandedTaskID == task.id {
+            expandedTaskID = nil
+        }
+        withAnimation(.easeInOut(duration: 0.34)) {
+            coordinator.toggleTask(task)
+        }
     }
 
     private func commitEditing() {
@@ -184,9 +246,18 @@ private struct TaskRowDropDelegate: DropDelegate {
         guard let draggedTaskID = coordinator.draggedTaskID,
               draggedTaskID != targetTask.id else { return }
 
+        coordinator.updateTaskDropTarget(
+            draggedTaskID: draggedTaskID,
+            targetTask: targetTask,
+            targetList: targetList
+        )
         withAnimation(.snappy(duration: 0.20)) {
             coordinator.moveTask(id: draggedTaskID, to: targetList, before: targetTask)
         }
+    }
+
+    func dropExited(info: DropInfo) {
+        coordinator.clearTaskDropTarget(targetTask.id)
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {

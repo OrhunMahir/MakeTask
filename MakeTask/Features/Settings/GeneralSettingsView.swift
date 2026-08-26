@@ -24,6 +24,21 @@ struct GeneralSettingsView: View {
                 }
 
                 Toggle("Hide completed tasks", isOn: $settings.hideCompletedTasks)
+
+                HStack {
+                    Picker("Completion sound", selection: $settings.completionSound) {
+                        ForEach(AppSettings.CompletionSound.allCases) { sound in
+                            Text(sound.title).tag(sound)
+                        }
+                    }
+
+                    Button {
+                        settings.completionSound.play()
+                    } label: {
+                        Label("Preview", systemImage: "speaker.wave.2")
+                    }
+                    .disabled(settings.completionSound == .none)
+                }
             } header: {
                 Text("Tasks")
             }

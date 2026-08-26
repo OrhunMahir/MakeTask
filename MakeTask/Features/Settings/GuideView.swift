@@ -151,8 +151,18 @@ struct GuideView: View {
         ),
         InteractionItem(
             icon: "checkmark.circle",
-            title: "Click a task or its circle",
-            detail: "Complete or uncomplete the task."
+            title: "Click a task's circle",
+            detail: "Complete or uncomplete the task, move it softly between sections, and play your selected sound."
+        ),
+        InteractionItem(
+            icon: "note.text",
+            title: "Click a task title",
+            detail: "Open or close its notes and optional due date/time details."
+        ),
+        InteractionItem(
+            icon: "chevron.down",
+            title: "Click the Completed header",
+            detail: "Collapse or expand completed tasks. Each list remembers this state."
         )
     ]
 
