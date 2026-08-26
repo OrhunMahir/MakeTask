@@ -8,6 +8,7 @@ struct NoteView: View {
     @EnvironmentObject private var settings: AppSettings
     @State private var newTaskTitle = ""
     @State private var isConfirmingDelete = false
+    @State private var isConfirmingClearCompleted = false
     @State private var selectedTaskID: UUID?
     @State private var editingTaskID: UUID?
     @State private var expandedTaskID: UUID?
@@ -36,7 +37,11 @@ struct NoteView: View {
         settings.hideCompletedTasks ? [] : completedTasks
     }
 
-    private var taskAnimationValue: [String] {
+    private var taskOrderAnimationValue: [UUID] {
+        list.orderedTasks.map(\.id)
+    }
+
+    private var taskCompletionAnimationValue: [String] {
         list.orderedTasks.map { "\($0.id.uuidString)-\($0.isCompleted)" }
     }
 
@@ -80,25 +85,37 @@ struct NoteView: View {
                                     completedHeader
 
                                     if !list.isCompletedSectionCollapsed {
-                                        ForEach(visibleCompletedTasks) { task in
-                                            TaskRowView(
-                                                task: task,
-                                                list: list,
-                                                selectedTaskID: $selectedTaskID,
-                                                editingTaskID: $editingTaskID,
-                                                expandedTaskID: $expandedTaskID
-                                            )
-                                            .transition(
-                                                .opacity.combined(with: .move(edge: .top))
-                                            )
+                                        VStack(spacing: 0) {
+                                            ForEach(visibleCompletedTasks) { task in
+                                                TaskRowView(
+                                                    task: task,
+                                                    list: list,
+                                                    selectedTaskID: $selectedTaskID,
+                                                    editingTaskID: $editingTaskID,
+                                                    expandedTaskID: $expandedTaskID
+                                                )
+                                            }
                                         }
+                                        .transition(
+                                            .asymmetric(
+                                                insertion: .opacity.combined(with: .offset(y: -12)),
+                                                removal: .opacity.combined(with: .offset(y: -26))
+                                            )
+                                        )
                                     }
                                 }
                             }
                         }
                         .padding(.vertical, 6)
                         .frame(maxWidth: .infinity)
-                        .animation(.easeInOut(duration: 0.34), value: taskAnimationValue)
+                        .animation(
+                            .interactiveSpring(response: 0.24, dampingFraction: 0.86),
+                            value: taskOrderAnimationValue
+                        )
+                        .animation(
+                            .easeInOut(duration: 0.34),
+                            value: taskCompletionAnimationValue
+                        )
                     }
                     .coordinateSpace(name: "task-scroll-\(list.id.uuidString)")
                     .background {
@@ -173,6 +190,18 @@ struct NoteView: View {
         } message: {
             Text("The list and all of its tasks will be deleted. Press ⌘Z immediately afterward to undo.")
         }
+        .confirmationDialog(
+            "Clear completed tasks?",
+            isPresented: $isConfirmingClearCompleted
+        ) {
+            Button("Clear Completed Tasks", role: .destructive) {
+                coordinator.clearCompletedTasks(in: list)
+            }
+            .keyboardShortcut(.defaultAction)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("All completed tasks in this list will be deleted. Press ⌘Z immediately afterward to undo.")
+        }
     }
 
     private var searchField: some View {
@@ -229,15 +258,7 @@ struct NoteView: View {
 
     private var completedHeader: some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.22)) {
-                list.isCompletedSectionCollapsed.toggle()
-                if list.isCompletedSectionCollapsed,
-                   let selectedTaskID,
-                   completedTasks.contains(where: { $0.id == selectedTaskID }) {
-                    self.selectedTaskID = activeTasks.last?.id
-                }
-            }
-            coordinator.saveContext()
+            toggleCompletedSection()
         } label: {
             HStack(spacing: 6) {
                 Image(
@@ -266,6 +287,7 @@ struct NoteView: View {
         .padding(.horizontal, 12)
         .padding(.top, 12)
         .padding(.bottom, 4)
+        .zIndex(1)
         .help(list.isCompletedSectionCollapsed ? "Show completed tasks" : "Hide completed tasks")
     }
 
@@ -300,10 +322,28 @@ struct NoteView: View {
         case .editSelectedTask:
             guard let task = selectedTask(orSelectFirst: true) else { return }
             editingTaskID = task.id
+        case .deleteSelectedTask:
+            guard let task = selectedTask(orSelectFirst: false) else { return }
+            expandedTaskID = nil
+            editingTaskID = nil
+            withAnimation(.easeInOut(duration: 0.2)) {
+                coordinator.deleteTask(task)
+            }
         case .moveSelectedTaskUp:
             moveSelectedTask(by: -1)
         case .moveSelectedTaskDown:
             moveSelectedTask(by: 1)
+        case .moveSelectedTaskToPreviousList:
+            guard let task = selectedTask(orSelectFirst: false) else { return }
+            coordinator.moveTaskToAdjacentList(task, by: -1)
+        case .moveSelectedTaskToNextList:
+            guard let task = selectedTask(orSelectFirst: false) else { return }
+            coordinator.moveTaskToAdjacentList(task, by: 1)
+        case .toggleCompletedSection:
+            toggleCompletedSection()
+        case .requestClearCompletedTasks:
+            guard !completedTasks.isEmpty else { return }
+            isConfirmingClearCompleted = true
         case .requestListDeletion:
             isConfirmingDelete = true
         }
@@ -356,6 +396,19 @@ struct NoteView: View {
         searchText = ""
         isSearching = false
         isSearchFocused = false
+    }
+
+    private func toggleCompletedSection() {
+        guard !visibleCompletedTasks.isEmpty else { return }
+        withAnimation(.easeInOut(duration: 0.22)) {
+            list.isCompletedSectionCollapsed.toggle()
+            if list.isCompletedSectionCollapsed,
+               let selectedTaskID,
+               completedTasks.contains(where: { $0.id == selectedTaskID }) {
+                self.selectedTaskID = activeTasks.last?.id
+            }
+        }
+        coordinator.saveContext()
     }
 
     private func keepSelectionVisible(_ taskID: UUID, using scrollProxy: ScrollViewProxy) {

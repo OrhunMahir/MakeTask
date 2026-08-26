@@ -34,6 +34,10 @@ final class AppSettings: ObservableObject {
         case tink
         case glass
         case funk
+        case purr
+        case bottle
+        case blow
+        case ping
 
         var id: String { rawValue }
 
@@ -44,6 +48,10 @@ final class AppSettings: ObservableObject {
             case .tink: "Tink"
             case .glass: "Glass"
             case .funk: "Funk"
+            case .purr: "Purr — Soft"
+            case .bottle: "Bottle — Soft"
+            case .blow: "Blow — Airy"
+            case .ping: "Ping — Light"
             }
         }
 
@@ -54,6 +62,10 @@ final class AppSettings: ObservableObject {
             case .tink: "Tink"
             case .glass: "Glass"
             case .funk: "Funk"
+            case .purr: "Purr"
+            case .bottle: "Bottle"
+            case .blow: "Blow"
+            case .ping: "Ping"
             }
         }
 

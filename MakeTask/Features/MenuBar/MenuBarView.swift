@@ -104,6 +104,13 @@ struct MenuBarView: View {
         }
         .disabled(!coordinator.canUndo)
 
+        Button {
+            coordinator.redoLastAction()
+        } label: {
+            Label("Redo Last Action — ⇧⌘Z", systemImage: "arrow.uturn.forward")
+        }
+        .disabled(!coordinator.canRedo)
+
         Button(role: .destructive) {
             coordinator.sendKeyboardCommand(.requestListDeletion, activatingNote: true)
         } label: {

@@ -12,6 +12,7 @@ struct TaskRowView: View {
     @EnvironmentObject private var coordinator: WindowCoordinator
     @State private var isHovering = false
     @State private var titleDraft = ""
+    @State private var rowSize: CGSize = .zero
     @FocusState private var isTitleFocused: Bool
 
     private var isSelected: Bool {
@@ -34,6 +35,11 @@ struct TaskRowView: View {
         coordinator.taskDropTargetID == task.id && !isDragging
     }
 
+    private var isOverdue: Bool {
+        guard !task.isCompleted, let dueDate = task.dueDate else { return false }
+        return dueDate < coordinator.dueDateReferenceDate
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             taskHeader
@@ -43,16 +49,17 @@ struct TaskRowView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .opacity(isDragging ? 0 : 1)
         .contentShape(Rectangle())
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(list.noteColor.tint.opacity(isDragging ? 0.18 : (isSelected ? 0.09 : 0)))
+                .fill(list.noteColor.tint.opacity(isDragging ? 0.08 : (isSelected ? 0.09 : 0)))
         }
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(
-                    list.noteColor.tint.opacity(isDragging ? 1 : (isSelected ? 0.62 : 0)),
-                    lineWidth: isDragging ? 2 : (isSelected ? 1 : 0)
+                    list.noteColor.tint.opacity(isDragging ? 0.62 : (isSelected ? 0.62 : 0)),
+                    lineWidth: isDragging ? 1.5 : (isSelected ? 1 : 0)
                 )
         }
         .overlay(alignment: coordinator.taskDropEdge == .top ? .top : .bottom) {
@@ -65,13 +72,6 @@ struct TaskRowView: View {
                     .transition(.opacity)
             }
         }
-        .scaleEffect(isDragging ? 1.012 : 1)
-        .opacity(isDragging ? 0.78 : 1)
-        .shadow(
-            color: isDragging ? list.noteColor.tint.opacity(0.28) : .clear,
-            radius: isDragging ? 5 : 0,
-            y: isDragging ? 2 : 0
-        )
         .zIndex(isDragging ? 2 : 0)
         .animation(.easeOut(duration: 0.12), value: isDragging)
         .animation(.easeOut(duration: 0.12), value: isSelected)
@@ -94,7 +94,8 @@ struct TaskRowView: View {
             delegate: TaskRowDropDelegate(
                 targetTask: task,
                 targetList: list,
-                coordinator: coordinator
+                coordinator: coordinator,
+                targetHeight: rowSize.height
             )
         )
         .background {
@@ -107,6 +108,11 @@ struct TaskRowView: View {
                         )
                     ]
                 )
+            }
+        }
+        .onPreferenceChange(TaskRowFramePreferenceKey.self) { frames in
+            if let frame = frames[task.id] {
+                rowSize = frame.size
             }
         }
         .onChange(of: isEditing) { _, editing in
@@ -148,10 +154,19 @@ struct TaskRowView: View {
                     .onSubmit(commitEditing)
                     .onExitCommand(perform: cancelEditing)
             } else {
-                Text(task.title)
-                    .font(.system(size: 13.5))
-                    .strikethrough(task.isCompleted, color: .secondary)
-                    .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(task.title)
+                        .font(.system(size: 13.5))
+                        .strikethrough(task.isCompleted, color: .secondary)
+                        .foregroundStyle(task.isCompleted ? .secondary : .primary)
+
+                    if isOverdue {
+                        Label("Missed due date", systemImage: "exclamationmark.circle.fill")
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .foregroundStyle(.red)
+                            .transition(.opacity)
+                    }
+                }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                     .onTapGesture {
@@ -180,6 +195,7 @@ struct TaskRowView: View {
         .contentShape(Rectangle())
         .onDrag {
             selectedTaskID = task.id
+            expandedTaskID = nil
             coordinator.beginTaskDrag(task)
             return NSItemProvider(object: task.id.uuidString as NSString)
         } preview: {
@@ -197,6 +213,7 @@ struct TaskRowView: View {
         .font(.system(size: 13.5, weight: .medium))
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .frame(width: max(rowSize.width, 220), alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 9))
         .overlay {
             RoundedRectangle(cornerRadius: 9)
@@ -237,23 +254,14 @@ private struct TaskRowDropDelegate: DropDelegate {
     let targetTask: TodoTask
     let targetList: TodoList
     let coordinator: WindowCoordinator
+    let targetHeight: CGFloat
 
     func validateDrop(info: DropInfo) -> Bool {
         coordinator.draggedTaskID != nil
     }
 
     func dropEntered(info: DropInfo) {
-        guard let draggedTaskID = coordinator.draggedTaskID,
-              draggedTaskID != targetTask.id else { return }
-
-        coordinator.updateTaskDropTarget(
-            draggedTaskID: draggedTaskID,
-            targetTask: targetTask,
-            targetList: targetList
-        )
-        withAnimation(.snappy(duration: 0.20)) {
-            coordinator.moveTask(id: draggedTaskID, to: targetList, before: targetTask)
-        }
+        updateDrop(info)
     }
 
     func dropExited(info: DropInfo) {
@@ -261,12 +269,32 @@ private struct TaskRowDropDelegate: DropDelegate {
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
+        updateDrop(info)
+        return DropProposal(operation: .move)
     }
 
     func performDrop(info: DropInfo) -> Bool {
         coordinator.endTaskDrag()
         return true
+    }
+
+    private func updateDrop(_ info: DropInfo) {
+        guard let draggedTaskID = coordinator.draggedTaskID,
+              draggedTaskID != targetTask.id else { return }
+
+        let rowHeight = max(targetHeight, 30)
+        let edge: TaskDropEdge = info.location.y < rowHeight / 2 ? .top : .bottom
+        coordinator.updateTaskDropTarget(targetTask: targetTask, edge: edge)
+
+        _ = withAnimation(.interactiveSpring(response: 0.24, dampingFraction: 0.86)) {
+            coordinator.moveTask(
+                id: draggedTaskID,
+                to: targetList,
+                relativeTo: targetTask,
+                edge: edge,
+                persistImmediately: false
+            )
+        }
     }
 }
 
@@ -284,8 +312,12 @@ struct TaskListDropDelegate: DropDelegate {
 
     func performDrop(info: DropInfo) -> Bool {
         guard let draggedTaskID = coordinator.draggedTaskID else { return false }
-        withAnimation(.snappy(duration: 0.20)) {
-            coordinator.moveTask(id: draggedTaskID, to: targetList)
+        _ = withAnimation(.snappy(duration: 0.20)) {
+            coordinator.moveTask(
+                id: draggedTaskID,
+                to: targetList,
+                persistImmediately: false
+            )
         }
         coordinator.endTaskDrag()
         return true

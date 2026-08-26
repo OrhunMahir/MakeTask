@@ -13,10 +13,11 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - Create a named list directly inside Quick Add without leaving the keyboard flow
 - Create, complete, uncomplete, delete, and reorder tasks
 - Click a task title to open its notes and optional date/time details; only the circular checkbox changes completion
+- Show a red **Missed due date** warning on incomplete overdue tasks
 - Collapse or expand the Completed section independently; its state is persisted per list
-- Choose Pop, Tink, Glass, Funk, or no completion sound in General settings
+- Choose from eight native completion sounds—including softer Purr, Bottle, Blow, and Ping options—or disable sound in General settings
 - Search, select, complete, edit, reorder, and undo tasks from the keyboard
-- Drag tasks within and between note windows with live row reordering and a highlighted preview
+- Drag tasks within and between note windows with a lifted card preview, a live placeholder gap, and midpoint-based insertion
 - Drag a note only from the empty header area, so task dragging never moves the window
 - Double-click the empty note header area to collapse it to its title bar
 - Collapse and hide are separate, persisted states
@@ -143,11 +144,17 @@ More detail is available in [ARCHITECTURE.md](ARCHITECTURE.md).
 | Show/hide all notes | `⌘⇧H` |
 | Search tasks in active note | `⌘F` |
 | Undo last MakeTask action | `⌘Z` |
+| Redo last undone action | `⌘⇧Z` |
 | Delete active note (with confirmation) | `⌘Delete` |
 | Select previous/next task | `↑` / `↓` |
 | Complete selected task | `Space` |
 | Edit selected task | `Return` |
+| Delete selected task | `Delete` |
 | Reorder selected task | `⌥↑` / `⌥↓` |
+| Move selected task to previous/next list | `⌃⌘←` / `⌃⌘→` |
+| Rename current list | `⌘L` |
+| Collapse/expand completed tasks | `⌘⇧C` |
+| Clear completed tasks (with confirmation) | `⌥⌘Delete` |
 | Switch to list 1–9 | `⌘1`…`⌘9` |
 | Cancel Quick Add or task entry | `Escape` |
 

@@ -10,8 +10,15 @@ struct TaskDetailView: View {
         Binding(
             get: { task.dueDate != nil },
             set: { enabled in
-                task.dueDate = enabled ? (task.dueDate ?? Date()) : nil
-                coordinator.saveContext()
+                let defaultDueDate = Calendar.current.date(
+                    byAdding: .day,
+                    value: 1,
+                    to: Date()
+                ) ?? Date().addingTimeInterval(86_400)
+                coordinator.setDueDate(
+                    enabled ? (task.dueDate ?? defaultDueDate) : nil,
+                    for: task
+                )
             }
         )
     }
@@ -20,8 +27,7 @@ struct TaskDetailView: View {
         Binding(
             get: { task.dueDate ?? Date() },
             set: { value in
-                task.dueDate = value
-                coordinator.saveContext()
+                coordinator.setDueDate(value, for: task)
             }
         )
     }

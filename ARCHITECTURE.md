@@ -31,7 +31,7 @@ Deleting a list cascades to its tasks. There is intentionally no singleton Inbox
 
 Window geometry lives with `TodoList` because each list maps one-to-one to a note window. The persisted geometry is `(x, top, expandedWidth, expandedHeight)`. Using `top` instead of AppKit's lower-left `y` keeps the visual header anchor stable across collapse and expand transitions. Each list also persists whether its Completed section is expanded.
 
-Task ordering uses a persisted `Double`. Row-level drop delegates reorder as the pointer enters a target row, including the downward-insertion adjustment expected by native lists. The affected source and target lists are normalized after a move, avoiding gaps or unbounded fractional insertions.
+Task ordering uses a persisted `Double`. Row-level drop delegates compare the pointer with each target row's midpoint and move an invisible source placeholder above or below that row. This makes surrounding rows animate out of the way while the outlined system drag card follows the pointer. Live hover changes stay in the model context and are saved once when the drop finishes, keeping the interaction responsive. The affected source and target lists are normalized after a move, avoiding gaps or unbounded fractional insertions.
 
 ### UserDefaults
 
@@ -45,7 +45,7 @@ Task ordering uses a persisted `Double`. Row-level drop delegates reorder as the
 
 ### Ephemeral state
 
-`WindowCoordinator` owns the live mapping from list UUID to `NoteWindowController`, the active list, keyboard-command dispatch, drag-session state, the bounded local undo history, focus requests, the current Quick Add controller, and the registered global hotkeys. Per-note search text and keyboard task selection stay inside `NoteView` because they are presentation state.
+`WindowCoordinator` owns the live mapping from list UUID to `NoteWindowController`, the active list, keyboard-command dispatch, drag-session state, bounded local undo/redo histories, focus requests, the current Quick Add controller, and the registered global hotkeys. Per-note search text and keyboard task selection stay inside `NoteView` because they are presentation state.
 
 ## Window architecture
 
@@ -93,7 +93,9 @@ Quick Add is a short-lived borderless floating panel centered on the screen cont
 
 ## Global shortcut
 
-`GlobalHotKeyService` installs a Carbon application event handler and filters events by `EventHotKeyID`, allowing independent Quick Add and note-visibility registrations. Carbon hotkeys are native, efficient, global, and do not require an accessibility event tap. A local AppKit key monitor handles note-scoped commands such as hide, collapse, search, keyboard task selection, editing, reordering, undo, deletion confirmation, and numbered list switching while respecting active text fields. Registration failures are surfaced by `WindowCoordinator.errorMessage` rather than silently ignored.
+`GlobalHotKeyService` installs a Carbon application event handler and filters events by `EventHotKeyID`, allowing independent Quick Add and note-visibility registrations. Carbon hotkeys are native, efficient, global, and do not require an accessibility event tap. A local AppKit key monitor handles note-scoped commands such as hide, collapse, search, keyboard task selection, editing, deletion, reordering, cross-list moves, completed-section controls, undo, and numbered list switching while respecting active text fields. Registration failures are surfaced by `WindowCoordinator.errorMessage` rather than silently ignored.
+
+Due-date refreshes use one scheduled work item for the nearest upcoming incomplete task. When it fires, `WindowCoordinator` publishes a new reference date and schedules the next deadline. This updates **Missed due date** labels without per-row polling.
 
 ## Performance characteristics
 

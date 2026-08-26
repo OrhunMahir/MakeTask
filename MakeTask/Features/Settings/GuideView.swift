@@ -78,6 +78,12 @@ struct GuideView: View {
                 keys: "⌘Z"
             ),
             ShortcutItem(
+                icon: "arrow.uturn.forward",
+                title: "Redo Action",
+                detail: "Reapply the last undone MakeTask change",
+                keys: "⇧⌘Z"
+            ),
+            ShortcutItem(
                 icon: "trash",
                 title: "Delete Note",
                 detail: "Ask before deleting the active note",
@@ -102,10 +108,40 @@ struct GuideView: View {
                 keys: "Return"
             ),
             ShortcutItem(
+                icon: "trash",
+                title: "Delete Selected Task",
+                detail: "Delete the current keyboard selection",
+                keys: "⌫"
+            ),
+            ShortcutItem(
                 icon: "arrow.up.arrow.down.circle",
                 title: "Reorder Task",
                 detail: "Move the selected task up or down",
                 keys: "⌥↑  ⌥↓"
+            ),
+            ShortcutItem(
+                icon: "arrow.left.arrow.right",
+                title: "Move Between Lists",
+                detail: "Move the selected task to the adjacent list",
+                keys: "⌃⌘←  ⌃⌘→"
+            ),
+            ShortcutItem(
+                icon: "text.cursor",
+                title: "Rename Current List",
+                detail: "Select the active list title for editing",
+                keys: "⌘L"
+            ),
+            ShortcutItem(
+                icon: "checkmark.circle.badge.questionmark",
+                title: "Toggle Completed Tasks",
+                detail: "Collapse or expand the Completed section",
+                keys: "⇧⌘C"
+            ),
+            ShortcutItem(
+                icon: "trash.slash",
+                title: "Clear Completed Tasks",
+                detail: "Confirm before removing completed tasks",
+                keys: "⌥⌘⌫"
             ),
             ShortcutItem(
                 icon: "square.stack",
@@ -147,7 +183,7 @@ struct GuideView: View {
         InteractionItem(
             icon: "hand.point.up.left",
             title: "Hold and drag a task",
-            detail: "Move over another row to reorder immediately, then drop it there or in another note."
+            detail: "The lifted card follows the pointer while a live gap shows its exact position in this or another note."
         ),
         InteractionItem(
             icon: "checkmark.circle",
@@ -166,14 +202,6 @@ struct GuideView: View {
         )
     ]
 
-    private let nextShortcutIdeas = [
-        ("Delete selected task", "⌫"),
-        ("Rename current list", "⌘L"),
-        ("Move task between lists", "⌃⌘←  ⌃⌘→"),
-        ("Toggle completed tasks", "⇧⌘C"),
-        ("Clear completed tasks", "⌥⌘⌫")
-    ]
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
@@ -182,7 +210,6 @@ struct GuideView: View {
                 shortcutSection
                 behaviorSection
                 interactionSection
-                nextIdeasSection
             }
             .padding(24)
         }
@@ -333,27 +360,6 @@ struct GuideView: View {
             }
             .padding(.horizontal, 12)
             .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
-        }
-    }
-
-    private var nextIdeasSection: some View {
-        guideSection(
-            title: "Good Next Shortcut Ideas",
-            subtitle: "Ideas only — the shortcuts above are active now; these are possible later additions."
-        ) {
-            LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(nextShortcutIdeas, id: \.0) { idea in
-                    HStack {
-                        Text(idea.0)
-                            .font(.system(size: 11.5, weight: .medium))
-                        Spacer()
-                        ShortcutKeyBadge(keys: idea.1)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
-                }
-            }
         }
     }
 

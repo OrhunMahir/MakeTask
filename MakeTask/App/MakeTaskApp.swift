@@ -62,7 +62,14 @@ struct MakeTaskApp: App {
                 Button("Undo Last MakeTask Action") {
                     appDelegate.windowCoordinator.undoLastAction()
                 }
+                .keyboardShortcut("z", modifiers: .command)
                 .disabled(!appDelegate.windowCoordinator.canUndo)
+
+                Button("Redo Last MakeTask Action") {
+                    appDelegate.windowCoordinator.redoLastAction()
+                }
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+                .disabled(!appDelegate.windowCoordinator.canRedo)
 
                 Button("Delete Current Note…  ⌘⌫", role: .destructive) {
                     appDelegate.windowCoordinator.sendKeyboardCommand(.requestListDeletion, activatingNote: true)

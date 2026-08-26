@@ -9,8 +9,13 @@ enum NoteKeyboardCommand: Equatable {
     case selectNextTask
     case toggleSelectedTask
     case editSelectedTask
+    case deleteSelectedTask
     case moveSelectedTaskUp
     case moveSelectedTaskDown
+    case moveSelectedTaskToPreviousList
+    case moveSelectedTaskToNextList
+    case toggleCompletedSection
+    case requestClearCompletedTasks
     case requestListDeletion
 }
 
@@ -38,7 +43,9 @@ final class WindowCoordinator: ObservableObject {
     @Published private(set) var draggedTaskID: UUID?
     @Published private(set) var taskDropTargetID: UUID?
     @Published private(set) var taskDropEdge: TaskDropEdge = .top
+    @Published private(set) var dueDateReferenceDate = Date()
     @Published private(set) var canUndo = false
+    @Published private(set) var canRedo = false
     @Published var errorMessage: String?
 
     private let context: ModelContext
@@ -48,13 +55,18 @@ final class WindowCoordinator: ObservableObject {
     private var visibilityHotKeyService: GlobalHotKeyService?
     private var localKeyMonitor: Any?
     private var taskDragSnapshot: [TaskPositionSnapshot]?
+    private var taskDragCurrentPositions: [UUID: TaskPositionSnapshot]?
+    private var taskDragDidMove = false
     private var taskDragCleanup: DispatchWorkItem?
+    private var dueDateRefreshWorkItem: DispatchWorkItem?
     private var undoActions: [UndoAction] = []
-    private var isPerformingUndo = false
+    private var redoActions: [UndoAction] = []
+    private var isPerformingHistoryAction = false
 
     private struct UndoAction {
         let name: String
-        let perform: () -> Void
+        let undo: () -> Void
+        let redo: () -> Void
     }
 
     private struct TaskPositionSnapshot {
@@ -165,11 +177,14 @@ final class WindowCoordinator: ObservableObject {
 
         installLocalKeyMonitor()
         restoreVisibleNotes()
+        scheduleNextDueDateRefresh()
     }
 
     func stop() {
         quickAddHotKeyService?.unregister()
         visibilityHotKeyService?.unregister()
+        dueDateRefreshWorkItem?.cancel()
+        dueDateRefreshWorkItem = nil
         if let localKeyMonitor {
             NSEvent.removeMonitor(localKeyMonitor)
             self.localKeyMonitor = nil
@@ -212,19 +227,33 @@ final class WindowCoordinator: ObservableObject {
             renameListID = list.id
         }
         let createdListID = list.id
-        registerUndoAction(named: "Create List") { [weak self] in
-            guard let self, let createdList = self.fetchList(id: createdListID) else { return }
-            self.deleteListWithoutRegisteringUndo(createdList)
-        }
+        let snapshot = ListSnapshot(list: list, settings: settings)
+        registerUndoAction(
+            named: "Create List",
+            undo: { [weak self] in
+                guard let self, let createdList = self.fetchList(id: createdListID) else { return }
+                self.deleteListWithoutRegisteringUndo(createdList)
+            },
+            redo: { [weak self] in
+                self?.restoreList(from: snapshot)
+            }
+        )
         return list
     }
 
     func deleteList(_ list: TodoList) {
         let snapshot = ListSnapshot(list: list, settings: settings)
         deleteListWithoutRegisteringUndo(list)
-        registerUndoAction(named: "Delete List") { [weak self] in
-            self?.restoreList(from: snapshot)
-        }
+        registerUndoAction(
+            named: "Delete List",
+            undo: { [weak self] in
+                self?.restoreList(from: snapshot)
+            },
+            redo: { [weak self] in
+                guard let self, let restoredList = self.fetchList(id: snapshot.id) else { return }
+                self.deleteListWithoutRegisteringUndo(restoredList)
+            }
+        )
     }
 
     private func deleteListWithoutRegisteringUndo(_ list: TodoList) {
@@ -242,6 +271,7 @@ final class WindowCoordinator: ObservableObject {
         }
 
         context.delete(list)
+        scheduleNextDueDateRefresh()
         saveContext()
     }
 
@@ -252,10 +282,15 @@ final class WindowCoordinator: ObservableObject {
         guard !trimmed.isEmpty, trimmed != previousTitle else { return }
         list.title = trimmed
         saveContext()
-        registerUndoAction(named: "Rename List") { [weak self] in
-            guard let self, let currentList = self.fetchList(id: listID) else { return }
-            currentList.title = previousTitle
-        }
+        registerUndoAction(
+            named: "Rename List",
+            undo: { [weak self] in
+                self?.fetchList(id: listID)?.title = previousTitle
+            },
+            redo: { [weak self] in
+                self?.fetchList(id: listID)?.title = trimmed
+            }
+        )
     }
 
     func setColor(_ color: NoteColor, for list: TodoList) {
@@ -372,6 +407,12 @@ final class WindowCoordinator: ObservableObject {
         showAndActivate(lists[index])
     }
 
+    func beginRenamingActiveList() {
+        guard let list = activeList() else { return }
+        showAndActivate(list)
+        renameListID = list.id
+    }
+
     func sendKeyboardCommand(_ command: NoteKeyboardCommand, activatingNote: Bool = false) {
         guard let list = activeList() else { return }
         if activatingNote || list.isHidden {
@@ -390,11 +431,17 @@ final class WindowCoordinator: ObservableObject {
         let task = TodoTask(title: trimmed, sortOrder: order, list: list)
         context.insert(task)
         saveContext()
-        let createdTaskID = task.id
-        registerUndoAction(named: "Add Task") { [weak self] in
-            guard let self, let currentTask = self.fetchTask(id: createdTaskID) else { return }
-            self.context.delete(currentTask)
-        }
+        let snapshot = TaskSnapshot(task: task)
+        registerUndoAction(
+            named: "Add Task",
+            undo: { [weak self] in
+                guard let self, let currentTask = self.fetchTask(id: snapshot.id) else { return }
+                self.context.delete(currentTask)
+            },
+            redo: { [weak self] in
+                self?.restoreTask(from: snapshot)
+            }
+        )
     }
 
     func toggleTask(_ task: TodoTask) {
@@ -403,24 +450,43 @@ final class WindowCoordinator: ObservableObject {
         let taskID = task.id
         task.isCompleted.toggle()
         task.completedAt = task.isCompleted ? .now : nil
+        let updatedCompleted = task.isCompleted
+        let updatedCompletedAt = task.completedAt
         if task.isCompleted {
             settings.completionSound.play()
         }
+        scheduleNextDueDateRefresh()
         saveContext()
-        registerUndoAction(named: task.isCompleted ? "Complete Task" : "Uncomplete Task") { [weak self] in
-            guard let self, let currentTask = self.fetchTask(id: taskID) else { return }
-            currentTask.isCompleted = previousCompleted
-            currentTask.completedAt = previousCompletedAt
-        }
+        registerUndoAction(
+            named: task.isCompleted ? "Complete Task" : "Uncomplete Task",
+            undo: { [weak self] in
+                guard let currentTask = self?.fetchTask(id: taskID) else { return }
+                currentTask.isCompleted = previousCompleted
+                currentTask.completedAt = previousCompletedAt
+            },
+            redo: { [weak self] in
+                guard let currentTask = self?.fetchTask(id: taskID) else { return }
+                currentTask.isCompleted = updatedCompleted
+                currentTask.completedAt = updatedCompletedAt
+            }
+        )
     }
 
     func deleteTask(_ task: TodoTask) {
         let snapshot = TaskSnapshot(task: task)
         context.delete(task)
+        scheduleNextDueDateRefresh()
         saveContext()
-        registerUndoAction(named: "Delete Task") { [weak self] in
-            self?.restoreTask(from: snapshot)
-        }
+        registerUndoAction(
+            named: "Delete Task",
+            undo: { [weak self] in
+                self?.restoreTask(from: snapshot)
+            },
+            redo: { [weak self] in
+                guard let self, let restoredTask = self.fetchTask(id: snapshot.id) else { return }
+                self.context.delete(restoredTask)
+            }
+        )
     }
 
     func renameTask(_ task: TodoTask, to title: String) {
@@ -430,9 +496,69 @@ final class WindowCoordinator: ObservableObject {
         guard !trimmed.isEmpty, trimmed != previousTitle else { return }
         task.title = trimmed
         saveContext()
-        registerUndoAction(named: "Edit Task") { [weak self] in
-            self?.fetchTask(id: taskID)?.title = previousTitle
+        registerUndoAction(
+            named: "Edit Task",
+            undo: { [weak self] in
+                self?.fetchTask(id: taskID)?.title = previousTitle
+            },
+            redo: { [weak self] in
+                self?.fetchTask(id: taskID)?.title = trimmed
+            }
+        )
+    }
+
+    func setDueDate(_ dueDate: Date?, for task: TodoTask) {
+        task.dueDate = dueDate
+        scheduleNextDueDateRefresh()
+        saveContext()
+    }
+
+    func clearCompletedTasks(in list: TodoList) {
+        let snapshots = list.tasks.filter(\.isCompleted).map(TaskSnapshot.init)
+        guard !snapshots.isEmpty else { return }
+
+        for task in list.tasks where task.isCompleted {
+            context.delete(task)
         }
+        saveContext()
+
+        registerUndoAction(
+            named: "Clear Completed Tasks",
+            undo: { [weak self] in
+                guard let self else { return }
+                snapshots.forEach { self.restoreTask(from: $0) }
+            },
+            redo: { [weak self] in
+                guard let self else { return }
+                for snapshot in snapshots {
+                    if let task = self.fetchTask(id: snapshot.id) {
+                        self.context.delete(task)
+                    }
+                }
+            }
+        )
+    }
+
+    func moveTaskToAdjacentList(_ task: TodoTask, by offset: Int) {
+        guard let sourceList = task.list else { return }
+        let lists = fetchLists()
+        guard let sourceIndex = lists.firstIndex(where: { $0.id == sourceList.id }) else { return }
+        let targetIndex = sourceIndex + offset
+        guard lists.indices.contains(targetIndex) else { return }
+
+        let beforeSnapshot = fetchTasks().map {
+            TaskPositionSnapshot(taskID: $0.id, listID: $0.list?.id, sortOrder: $0.sortOrder)
+        }
+        guard moveTask(id: task.id, to: lists[targetIndex]) else { return }
+        let afterSnapshot = fetchTasks().map {
+            TaskPositionSnapshot(taskID: $0.id, listID: $0.list?.id, sortOrder: $0.sortOrder)
+        }
+
+        registerUndoAction(
+            named: "Move Task Between Lists",
+            undo: { [weak self] in self?.restoreTaskPositions(beforeSnapshot) },
+            redo: { [weak self] in self?.restoreTaskPositions(afterSnapshot) }
+        )
     }
 
     func swapTaskPositions(_ first: TodoTask, _ second: TodoTask) {
@@ -443,21 +569,32 @@ final class WindowCoordinator: ObservableObject {
         first.sortOrder = secondOrder
         second.sortOrder = firstOrder
         saveContext()
-        registerUndoAction(named: "Reorder Task") { [weak self] in
-            guard let self,
-                  let currentFirst = self.fetchTask(id: firstID),
-                  let currentSecond = self.fetchTask(id: secondID) else { return }
-            currentFirst.sortOrder = firstOrder
-            currentSecond.sortOrder = secondOrder
-        }
+        registerUndoAction(
+            named: "Reorder Task",
+            undo: { [weak self] in
+                guard let currentFirst = self?.fetchTask(id: firstID),
+                      let currentSecond = self?.fetchTask(id: secondID) else { return }
+                currentFirst.sortOrder = firstOrder
+                currentSecond.sortOrder = secondOrder
+            },
+            redo: { [weak self] in
+                guard let currentFirst = self?.fetchTask(id: firstID),
+                      let currentSecond = self?.fetchTask(id: secondID) else { return }
+                currentFirst.sortOrder = secondOrder
+                currentSecond.sortOrder = firstOrder
+            }
+        )
     }
 
     func beginTaskDrag(_ task: TodoTask) {
         guard draggedTaskID == nil else { return }
         draggedTaskID = task.id
-        taskDragSnapshot = fetchTasks().map {
+        let snapshot = fetchTasks().map {
             TaskPositionSnapshot(taskID: $0.id, listID: $0.list?.id, sortOrder: $0.sortOrder)
         }
+        taskDragSnapshot = snapshot
+        taskDragCurrentPositions = Dictionary(uniqueKeysWithValues: snapshot.map { ($0.taskID, $0) })
+        taskDragDidMove = false
         taskDragCleanup?.cancel()
         let cleanup = DispatchWorkItem { [weak self] in
             self?.endTaskDrag()
@@ -466,18 +603,9 @@ final class WindowCoordinator: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: cleanup)
     }
 
-    func updateTaskDropTarget(draggedTaskID: UUID, targetTask: TodoTask, targetList: TodoList) {
+    func updateTaskDropTarget(targetTask: TodoTask, edge: TaskDropEdge) {
         taskDropTargetID = targetTask.id
-
-        guard let draggedTask = fetchTask(id: draggedTaskID),
-              draggedTask.list?.id == targetList.id,
-              let sourceIndex = targetList.orderedTasks.firstIndex(where: { $0.id == draggedTaskID }),
-              let targetIndex = targetList.orderedTasks.firstIndex(where: { $0.id == targetTask.id }) else {
-            taskDropEdge = .top
-            return
-        }
-
-        taskDropEdge = sourceIndex < targetIndex ? .bottom : .top
+        taskDropEdge = edge
     }
 
     func clearTaskDropTarget(_ taskID: UUID) {
@@ -489,57 +617,60 @@ final class WindowCoordinator: ObservableObject {
         taskDragCleanup?.cancel()
         taskDragCleanup = nil
         taskDropTargetID = nil
-        guard let snapshot = taskDragSnapshot else {
+        guard let beforeSnapshot = taskDragSnapshot else {
             draggedTaskID = nil
             return
         }
-        taskDragSnapshot = nil
-        draggedTaskID = nil
-
-        let currentPositions = Dictionary(uniqueKeysWithValues: fetchTasks().map {
-            ($0.id, ($0.list?.id, $0.sortOrder))
-        })
-        let didMove = snapshot.contains { item in
-            guard let current = currentPositions[item.taskID] else { return true }
-            return current.0 != item.listID || current.1 != item.sortOrder
+        let afterSnapshot = taskDragCurrentPositions.map { Array($0.values) } ?? []
+        let finalPositions = Dictionary(uniqueKeysWithValues: afterSnapshot.map { ($0.taskID, $0) })
+        let didMove = taskDragDidMove && beforeSnapshot.contains { previous in
+            guard let current = finalPositions[previous.taskID] else { return true }
+            return current.listID != previous.listID || current.sortOrder != previous.sortOrder
         }
+        taskDragSnapshot = nil
+        taskDragCurrentPositions = nil
+        taskDragDidMove = false
+        draggedTaskID = nil
         guard didMove else { return }
 
-        registerUndoAction(named: "Move Task") { [weak self] in
-            self?.restoreTaskPositions(snapshot)
+        registerUndoAction(
+            named: "Move Task",
+            undo: { [weak self] in self?.restoreTaskPositions(beforeSnapshot) },
+            redo: { [weak self] in self?.restoreTaskPositions(afterSnapshot) }
+        )
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+            self?.saveContext()
         }
-        saveContext()
     }
 
-    func moveTask(id: UUID, to targetList: TodoList, before targetTask: TodoTask? = nil) {
+    @discardableResult
+    func moveTask(
+        id: UUID,
+        to targetList: TodoList,
+        relativeTo targetTask: TodoTask? = nil,
+        edge: TaskDropEdge = .bottom,
+        persistImmediately: Bool = true
+    ) -> Bool {
         let descriptor = FetchDescriptor<TodoTask>(
             predicate: #Predicate { $0.id == id }
         )
-        guard let task = try? context.fetch(descriptor).first else { return }
+        guard let task = try? context.fetch(descriptor).first else { return false }
 
         let sourceList = task.list
-        let originalTargetOrder = targetList.orderedTasks
-        let sourceIndex = originalTargetOrder.firstIndex(where: { $0.id == task.id })
-        let targetIndex = targetTask.flatMap { target in
-            originalTargetOrder.firstIndex(where: { $0.id == target.id })
-        }
-        let isMovingDownInSameList: Bool
-        if sourceList?.id == targetList.id, let sourceIndex, let targetIndex {
-            isMovingDownInSameList = sourceIndex < targetIndex
-        } else {
-            isMovingDownInSameList = false
-        }
-        if sourceList?.id != targetList.id {
-            task.list = targetList
-        }
-
         var ordered = targetList.orderedTasks.filter { $0.id != task.id }
         if let targetTask,
            let index = ordered.firstIndex(where: { $0.id == targetTask.id }) {
-            let insertionIndex = min(index + (isMovingDownInSameList ? 1 : 0), ordered.count)
+            let insertionIndex = min(index + (edge == .bottom ? 1 : 0), ordered.count)
             ordered.insert(task, at: insertionIndex)
         } else {
             ordered.append(task)
+        }
+
+        let targetOrderChanged = ordered.map(\.id) != targetList.orderedTasks.map(\.id)
+        guard sourceList?.id != targetList.id || targetOrderChanged else { return false }
+
+        if sourceList?.id != targetList.id {
+            task.list = targetList
         }
         for (index, item) in ordered.enumerated() {
             item.sortOrder = Double(index)
@@ -550,7 +681,24 @@ final class WindowCoordinator: ObservableObject {
                 item.sortOrder = Double(index)
             }
         }
-        saveContext()
+        if !persistImmediately, draggedTaskID != nil {
+            taskDragDidMove = true
+            var changedTasks = ordered
+            if let sourceList, sourceList.id != targetList.id {
+                changedTasks.append(contentsOf: sourceList.orderedTasks)
+            }
+            for item in changedTasks {
+                taskDragCurrentPositions?[item.id] = TaskPositionSnapshot(
+                    taskID: item.id,
+                    listID: item.list?.id,
+                    sortOrder: item.sortOrder
+                )
+            }
+        }
+        if persistImmediately {
+            saveContext()
+        }
+        return true
     }
 
     func presentQuickAdd() {
@@ -603,12 +751,50 @@ final class WindowCoordinator: ObservableObject {
     @discardableResult
     func undoLastAction() -> Bool {
         guard let action = undoActions.popLast() else { return false }
-        isPerformingUndo = true
-        action.perform()
-        isPerformingUndo = false
-        canUndo = !undoActions.isEmpty
+        isPerformingHistoryAction = true
+        action.undo()
+        isPerformingHistoryAction = false
+        redoActions.append(action)
+        updateHistoryAvailability()
+        scheduleNextDueDateRefresh()
         saveContext()
         return true
+    }
+
+    @discardableResult
+    func redoLastAction() -> Bool {
+        guard let action = redoActions.popLast() else { return false }
+        isPerformingHistoryAction = true
+        action.redo()
+        isPerformingHistoryAction = false
+        undoActions.append(action)
+        updateHistoryAvailability()
+        scheduleNextDueDateRefresh()
+        saveContext()
+        return true
+    }
+
+    private func scheduleNextDueDateRefresh() {
+        dueDateRefreshWorkItem?.cancel()
+        dueDateRefreshWorkItem = nil
+
+        let now = Date()
+        dueDateReferenceDate = now
+        let nextDueDate = fetchTasks()
+            .filter { !$0.isCompleted }
+            .compactMap(\.dueDate)
+            .filter { $0 > now }
+            .min()
+
+        guard let nextDueDate else { return }
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.scheduleNextDueDateRefresh()
+        }
+        dueDateRefreshWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + max(nextDueDate.timeIntervalSince(now), 0.05) + 0.05,
+            execute: workItem
+        )
     }
 
     private func activeList() -> TodoList? {
@@ -651,13 +837,51 @@ final class WindowCoordinator: ObservableObject {
                 return nil
             }
 
+            if key == "z", modifiers == [.command, .shift], !quickAddIsKey, !isEditingText {
+                return self.redoLastAction() ? nil : event
+            }
+
             if key == "z", modifiers == [.command], !quickAddIsKey, !isEditingText {
                 return self.undoLastAction() ? nil : event
+            }
+
+            if key == "l", modifiers == [.command], notePanelIsKey, !isEditingText {
+                self.beginRenamingActiveList()
+                return nil
+            }
+
+            if key == "c", modifiers == [.command, .shift], notePanelIsKey, !isEditingText {
+                self.sendKeyboardCommand(.toggleCompletedSection)
+                return nil
+            }
+
+            if event.keyCode == UInt16(kVK_LeftArrow), modifiers == [.command, .control],
+               notePanelIsKey, !isEditingText {
+                self.sendKeyboardCommand(.moveSelectedTaskToPreviousList)
+                return nil
+            }
+
+            if event.keyCode == UInt16(kVK_RightArrow), modifiers == [.command, .control],
+               notePanelIsKey, !isEditingText {
+                self.sendKeyboardCommand(.moveSelectedTaskToNextList)
+                return nil
+            }
+
+            if (event.keyCode == UInt16(kVK_Delete) || event.keyCode == UInt16(kVK_ForwardDelete)),
+               modifiers == [.command, .option], notePanelIsKey, !isEditingText, !event.isARepeat {
+                self.sendKeyboardCommand(.requestClearCompletedTasks)
+                return nil
             }
 
             if (event.keyCode == UInt16(kVK_Delete) || event.keyCode == UInt16(kVK_ForwardDelete)),
                modifiers == [.command], notePanelIsKey, !event.isARepeat {
                 self.sendKeyboardCommand(.requestListDeletion)
+                return nil
+            }
+
+            if (event.keyCode == UInt16(kVK_Delete) || event.keyCode == UInt16(kVK_ForwardDelete)),
+               modifiers.isEmpty, notePanelIsKey, !isEditingText, !event.isARepeat {
+                self.sendKeyboardCommand(.deleteSelectedTask)
                 return nil
             }
 
@@ -715,13 +939,23 @@ final class WindowCoordinator: ObservableObject {
         }
     }
 
-    private func registerUndoAction(named name: String, perform: @escaping () -> Void) {
-        guard !isPerformingUndo else { return }
-        undoActions.append(UndoAction(name: name, perform: perform))
+    private func registerUndoAction(
+        named name: String,
+        undo: @escaping () -> Void,
+        redo: @escaping () -> Void
+    ) {
+        guard !isPerformingHistoryAction else { return }
+        undoActions.append(UndoAction(name: name, undo: undo, redo: redo))
         if undoActions.count > 50 {
             undoActions.removeFirst(undoActions.count - 50)
         }
-        canUndo = true
+        redoActions.removeAll()
+        updateHistoryAvailability()
+    }
+
+    private func updateHistoryAvailability() {
+        canUndo = !undoActions.isEmpty
+        canRedo = !redoActions.isEmpty
     }
 
     private func restoreTask(from snapshot: TaskSnapshot) {
