@@ -12,7 +12,9 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - Click a list title to rename it inline; new lists start in rename mode
 - Create a named list directly inside Quick Add without leaving the keyboard flow
 - Create, complete, uncomplete, delete, and reorder tasks
-- Click a task title to open its notes and optional date/time details; only the circular checkbox changes completion
+- Click a task title to open its notes, optional date/time, priority, and subtasks; only the circular checkbox changes completion
+- Assign None, Low, Medium, or High priority and see its colored flag directly on the task row
+- Add, complete, rename, and delete persistent subtasks with live completion progress
 - Show a red **Missed due date** warning on incomplete overdue tasks
 - Collapse or expand the Completed section independently; its state is persisted per list
 - Choose from eight native completion sounds—including softer Purr, Bottle, Blow, and Ping options—adjust their volume, or disable sound in General settings
@@ -143,8 +145,11 @@ Hide is deliberately different: it calls `orderOut`, marks the list hidden, and 
 - identity, title, and ordering;
 - completed state and completion date;
 - optional notes and due date/time details;
-- a priority field reserved for the next UI phase;
+- None, Low, Medium, or High priority;
+- a cascade relationship to its subtasks;
 - its parent list.
+
+`TodoSubtask` stores its title, completion state and date, ordering, and parent task. Deleting a task or list cascades through its subtasks.
 
 There is no seeded or undeletable list. If every list is deleted, the menu and Quick Add surface display **Create your first list**.
 
@@ -200,8 +205,6 @@ MakeTask makes no network requests and its app target has outgoing network acces
 
 ## Next phases
 
-- Priorities and subtasks
-- Configurable completed-task delay
 - Broader shortcut recording
 - Optional local export/import
 - Automated UI coverage and accessibility refinements

@@ -75,6 +75,24 @@ final class WindowCoordinator: ObservableObject {
         let sortOrder: Double
     }
 
+    private struct SubtaskSnapshot {
+        let id: UUID
+        let title: String
+        let isCompleted: Bool
+        let completedAt: Date?
+        let createdAt: Date
+        let sortOrder: Double
+
+        init(subtask: TodoSubtask) {
+            id = subtask.id
+            title = subtask.title
+            isCompleted = subtask.isCompleted
+            completedAt = subtask.completedAt
+            createdAt = subtask.createdAt
+            sortOrder = subtask.sortOrder
+        }
+    }
+
     private struct TaskSnapshot {
         let id: UUID
         let title: String
@@ -86,6 +104,7 @@ final class WindowCoordinator: ObservableObject {
         let createdAt: Date
         let sortOrder: Double
         let listID: UUID?
+        let subtasks: [SubtaskSnapshot]
 
         init(task: TodoTask) {
             id = task.id
@@ -98,6 +117,7 @@ final class WindowCoordinator: ObservableObject {
             createdAt = task.createdAt
             sortOrder = task.sortOrder
             listID = task.list?.id
+            subtasks = task.orderedSubtasks.map(SubtaskSnapshot.init)
         }
     }
 
@@ -511,6 +531,110 @@ final class WindowCoordinator: ObservableObject {
         task.dueDate = dueDate
         scheduleNextDueDateRefresh()
         saveContext()
+    }
+
+    func setPriority(_ priority: TaskPriority, for task: TodoTask) {
+        let previousPriority = task.priorityLevel
+        let taskID = task.id
+        guard priority != previousPriority else { return }
+
+        task.priorityLevel = priority
+        saveContext()
+        registerUndoAction(
+            named: "Change Priority",
+            undo: { [weak self] in
+                self?.fetchTask(id: taskID)?.priorityLevel = previousPriority
+            },
+            redo: { [weak self] in
+                self?.fetchTask(id: taskID)?.priorityLevel = priority
+            }
+        )
+    }
+
+    func addSubtask(title: String, to task: TodoTask) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let order = (task.subtasks.map(\.sortOrder).max() ?? -1) + 1
+        let subtask = TodoSubtask(title: trimmed, sortOrder: order, task: task)
+        context.insert(subtask)
+        saveContext()
+
+        let snapshot = SubtaskSnapshot(subtask: subtask)
+        let taskID = task.id
+        registerUndoAction(
+            named: "Add Subtask",
+            undo: { [weak self] in
+                guard let self, let currentSubtask = self.fetchSubtask(id: snapshot.id) else { return }
+                self.context.delete(currentSubtask)
+            },
+            redo: { [weak self] in
+                self?.restoreSubtask(from: snapshot, taskID: taskID)
+            }
+        )
+    }
+
+    func toggleSubtask(_ subtask: TodoSubtask) {
+        let previousCompleted = subtask.isCompleted
+        let previousCompletedAt = subtask.completedAt
+        let subtaskID = subtask.id
+
+        subtask.isCompleted.toggle()
+        subtask.completedAt = subtask.isCompleted ? .now : nil
+        let updatedCompleted = subtask.isCompleted
+        let updatedCompletedAt = subtask.completedAt
+        saveContext()
+
+        registerUndoAction(
+            named: subtask.isCompleted ? "Complete Subtask" : "Uncomplete Subtask",
+            undo: { [weak self] in
+                guard let currentSubtask = self?.fetchSubtask(id: subtaskID) else { return }
+                currentSubtask.isCompleted = previousCompleted
+                currentSubtask.completedAt = previousCompletedAt
+            },
+            redo: { [weak self] in
+                guard let currentSubtask = self?.fetchSubtask(id: subtaskID) else { return }
+                currentSubtask.isCompleted = updatedCompleted
+                currentSubtask.completedAt = updatedCompletedAt
+            }
+        )
+    }
+
+    func renameSubtask(_ subtask: TodoSubtask, to title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let previousTitle = subtask.title
+        let subtaskID = subtask.id
+        guard !trimmed.isEmpty, trimmed != previousTitle else { return }
+
+        subtask.title = trimmed
+        saveContext()
+        registerUndoAction(
+            named: "Edit Subtask",
+            undo: { [weak self] in
+                self?.fetchSubtask(id: subtaskID)?.title = previousTitle
+            },
+            redo: { [weak self] in
+                self?.fetchSubtask(id: subtaskID)?.title = trimmed
+            }
+        )
+    }
+
+    func deleteSubtask(_ subtask: TodoSubtask) {
+        guard let taskID = subtask.task?.id else { return }
+        let snapshot = SubtaskSnapshot(subtask: subtask)
+        context.delete(subtask)
+        saveContext()
+
+        registerUndoAction(
+            named: "Delete Subtask",
+            undo: { [weak self] in
+                self?.restoreSubtask(from: snapshot, taskID: taskID)
+            },
+            redo: { [weak self] in
+                guard let self, let restoredSubtask = self.fetchSubtask(id: snapshot.id) else { return }
+                self.context.delete(restoredSubtask)
+            }
+        )
     }
 
     func clearCompletedTasks(in list: TodoList) {
@@ -974,6 +1098,7 @@ final class WindowCoordinator: ObservableObject {
             list: list
         )
         context.insert(task)
+        restoreSubtasks(snapshot.subtasks, for: task)
     }
 
     private func restoreList(from snapshot: ListSnapshot) {
@@ -1009,6 +1134,7 @@ final class WindowCoordinator: ObservableObject {
                 list: list
             )
             context.insert(task)
+            restoreSubtasks(taskSnapshot.subtasks, for: task)
         }
 
         if snapshot.wasDefaultList {
@@ -1034,6 +1160,32 @@ final class WindowCoordinator: ObservableObject {
     private func fetchTask(id: UUID) -> TodoTask? {
         let descriptor = FetchDescriptor<TodoTask>(predicate: #Predicate { $0.id == id })
         return try? context.fetch(descriptor).first
+    }
+
+    private func fetchSubtask(id: UUID) -> TodoSubtask? {
+        let descriptor = FetchDescriptor<TodoSubtask>(predicate: #Predicate { $0.id == id })
+        return try? context.fetch(descriptor).first
+    }
+
+    private func restoreSubtask(from snapshot: SubtaskSnapshot, taskID: UUID) {
+        guard fetchSubtask(id: snapshot.id) == nil,
+              let task = fetchTask(id: taskID) else { return }
+        restoreSubtasks([snapshot], for: task)
+    }
+
+    private func restoreSubtasks(_ snapshots: [SubtaskSnapshot], for task: TodoTask) {
+        for snapshot in snapshots where fetchSubtask(id: snapshot.id) == nil {
+            let subtask = TodoSubtask(
+                id: snapshot.id,
+                title: snapshot.title,
+                isCompleted: snapshot.isCompleted,
+                completedAt: snapshot.completedAt,
+                createdAt: snapshot.createdAt,
+                sortOrder: snapshot.sortOrder,
+                task: task
+            )
+            context.insert(subtask)
+        }
     }
 
     private func fetchTasks() -> [TodoTask] {

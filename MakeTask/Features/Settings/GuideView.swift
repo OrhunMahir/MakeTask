@@ -193,7 +193,7 @@ struct GuideView: View {
         InteractionItem(
             icon: "note.text",
             title: "Click a task title",
-            detail: "Open or close its notes and optional due date/time details."
+            detail: "Open notes, due date/time, priority, and subtasks. Double-click a subtask title to rename it."
         ),
         InteractionItem(
             icon: "chevron.down",

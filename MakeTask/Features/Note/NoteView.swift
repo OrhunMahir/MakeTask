@@ -293,7 +293,10 @@ struct NoteView: View {
 
     private func matchesSearch(_ task: TodoTask) -> Bool {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        return query.isEmpty || task.title.localizedCaseInsensitiveContains(query)
+        return query.isEmpty
+            || task.title.localizedCaseInsensitiveContains(query)
+            || task.notes.localizedCaseInsensitiveContains(query)
+            || task.subtasks.contains { $0.title.localizedCaseInsensitiveContains(query) }
     }
 
     private var hasSearchQuery: Bool {

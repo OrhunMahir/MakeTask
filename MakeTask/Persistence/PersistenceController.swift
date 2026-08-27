@@ -4,7 +4,8 @@ enum PersistenceController {
     static func makeContainer(inMemory: Bool = false) throws -> ModelContainer {
         let schema = Schema([
             TodoList.self,
-            TodoTask.self
+            TodoTask.self,
+            TodoSubtask.self
         ])
         let configuration = ModelConfiguration(
             "MakeTask",

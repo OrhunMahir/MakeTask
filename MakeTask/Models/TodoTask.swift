@@ -14,6 +14,9 @@ final class TodoTask {
     var sortOrder: Double
     var list: TodoList?
 
+    @Relationship(deleteRule: .cascade, inverse: \TodoSubtask.task)
+    var subtasks: [TodoSubtask]
+
     init(
         id: UUID = UUID(),
         title: String,
@@ -24,7 +27,8 @@ final class TodoTask {
         completedAt: Date? = nil,
         createdAt: Date = .now,
         sortOrder: Double = 0,
-        list: TodoList? = nil
+        list: TodoList? = nil,
+        subtasks: [TodoSubtask] = []
     ) {
         self.id = id
         self.title = title
@@ -36,5 +40,20 @@ final class TodoTask {
         self.createdAt = createdAt
         self.sortOrder = sortOrder
         self.list = list
+        self.subtasks = subtasks
+    }
+
+    var priorityLevel: TaskPriority {
+        get { TaskPriority(rawValue: priority) ?? .none }
+        set { priority = newValue.rawValue }
+    }
+
+    var orderedSubtasks: [TodoSubtask] {
+        subtasks.sorted {
+            if $0.sortOrder == $1.sortOrder {
+                return $0.createdAt < $1.createdAt
+            }
+            return $0.sortOrder < $1.sortOrder
+        }
     }
 }

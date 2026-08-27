@@ -40,6 +40,14 @@ struct TaskRowView: View {
         return dueDate < coordinator.dueDateReferenceDate
     }
 
+    private var completedSubtaskCount: Int {
+        task.subtasks.filter(\.isCompleted).count
+    }
+
+    private var showsMetadata: Bool {
+        isOverdue || task.priorityLevel != .none || !task.subtasks.isEmpty
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             taskHeader
@@ -82,6 +90,20 @@ struct TaskRowView: View {
             }
             Button(task.isCompleted ? "Mark Incomplete" : "Mark Complete") {
                 completeTask()
+            }
+            Menu("Priority") {
+                ForEach(TaskPriority.allCases) { priority in
+                    Button {
+                        coordinator.setPriority(priority, for: task)
+                    } label: {
+                        Label(
+                            priority.title,
+                            systemImage: priority == task.priorityLevel
+                                ? "checkmark"
+                                : priority.symbolName
+                        )
+                    }
+                }
             }
             Divider()
             Button("Delete Task", role: .destructive) {
@@ -159,11 +181,33 @@ struct TaskRowView: View {
                         .strikethrough(task.isCompleted, color: .secondary)
                         .foregroundStyle(task.isCompleted ? .secondary : .primary)
 
-                    if isOverdue {
-                        Label("Missed due date", systemImage: "exclamationmark.circle.fill")
-                            .font(.system(size: 9.5, weight: .semibold))
-                            .foregroundStyle(.red)
-                            .transition(.opacity)
+                    if showsMetadata {
+                        HStack(spacing: 8) {
+                            if task.priorityLevel != .none {
+                                Label(task.priorityLevel.title, systemImage: task.priorityLevel.symbolName)
+                                    .foregroundStyle(
+                                        task.priorityLevel.tint.opacity(task.isCompleted ? 0.58 : 1)
+                                    )
+                                    .help("\(task.priorityLevel.title) priority")
+                            }
+
+                            if !task.subtasks.isEmpty {
+                                Label(
+                                    "\(completedSubtaskCount)/\(task.subtasks.count)",
+                                    systemImage: "checklist"
+                                )
+                                .foregroundStyle(.secondary)
+                                .help("Completed subtasks")
+                            }
+
+                            if isOverdue {
+                                Label("Missed due date", systemImage: "exclamationmark.circle.fill")
+                                    .foregroundStyle(.red)
+                                    .transition(.opacity)
+                            }
+                        }
+                        .font(.system(size: 9.5, weight: .semibold))
+                        .lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

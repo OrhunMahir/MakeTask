@@ -24,10 +24,10 @@ The generated Info.plist sets `LSUIElement` so MakeTask does not require a Dock 
 SwiftData is the source of truth for durable product state:
 
 ```text
-TodoList 1 ──────── * TodoTask
+TodoList 1 ──────── * TodoTask 1 ──────── * TodoSubtask
 ```
 
-Deleting a list cascades to its tasks. There is intentionally no singleton Inbox, special-list identifier, or seed migration.
+Deleting a list cascades to its tasks, and deleting a task cascades to its subtasks. There is intentionally no singleton Inbox, special-list identifier, or seed migration.
 
 Window geometry lives with `TodoList` because each list maps one-to-one to a note window. The persisted geometry is `(x, top, expandedWidth, expandedHeight)`. Using `top` instead of AppKit's lower-left `y` keeps the visual header anchor stable across collapse and expand transitions. Each list also persists whether its Completed section is expanded.
 
@@ -45,7 +45,7 @@ Task ordering uses a persisted `Double`. An `NSViewRepresentable` starts the nat
 
 ### Ephemeral state
 
-`WindowCoordinator` owns the live mapping from list UUID to `NoteWindowController`, the active list, keyboard-command dispatch, drag-session state, bounded local undo/redo histories, focus requests, the current Quick Add controller, and the registered global hotkeys. Per-note search text and keyboard task selection stay inside `NoteView` because they are presentation state.
+`WindowCoordinator` owns the live mapping from list UUID to `NoteWindowController`, the active list, keyboard-command dispatch, drag-session state, bounded local undo/redo histories, focus requests, the current Quick Add controller, and the registered global hotkeys. Task snapshots include nested subtask snapshots, so deleting and restoring a task or list preserves its complete hierarchy. Per-note search text and keyboard task selection stay inside `NoteView` because they are presentation state.
 
 ## Window architecture
 
@@ -108,4 +108,4 @@ Due-date refreshes use one scheduled work item for the nearest upcoming incomple
 
 ## Extension points
 
-`TaskDetailView` edits the persisted `notes` and optional `dueDate` fields inline. The unused `priority` field lets a later UI phase add prioritization without a destructive schema redesign. Completion policy and optional sync features should be added as focused feature modules rather than expanding `WindowCoordinator` into presentation logic.
+`TaskDetailView` edits persisted notes, due date, priority, and subtasks inline. Priority uses the existing integer field through the typed `TaskPriority` value, while subtasks use their own cascade model and ordered relationship. Add, edit, complete, delete, and priority actions participate in the coordinator's local undo/redo history. Optional sync features should be added as focused feature modules rather than expanding `WindowCoordinator` into presentation logic.
