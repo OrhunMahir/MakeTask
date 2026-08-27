@@ -38,6 +38,7 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - SwiftData persistence for tasks and note window state
 - System, light, and dark appearance with native vibrancy and live 45–100% note-window opacity
 - Respects macOS Reduce Motion for note roll-up, task transitions, subtasks, and drag reordering
+- In-memory XCTest coverage for backup validation, safe import, persistence, ordering, and cascade deletion
 - Launch at Login through `SMAppService`
 - Fully offline; no account, analytics, telemetry, or network entitlement
 
@@ -68,6 +69,7 @@ Developer commands:
 ```sh
 maketask --dev              # Build and open the latest Debug app
 maketask --dev --no-open    # Build without opening the app
+maketask --test             # Run all unit and persistence tests
 maketask --install-app      # Rebuild/update the local Release app
 maketask --help
 ```
@@ -171,6 +173,7 @@ MakeTask/
 │   ├── QuickAdd/
 │   └── Settings/
 └── Shared/              Reusable SwiftUI/AppKit bridges
+MakeTaskTests/            Isolated XCTest backup and persistence coverage
 scripts/                 Terminal launcher, installer, and uninstaller
 ```
 
@@ -209,6 +212,16 @@ These are the defaults. Open **Settings → Shortcuts**, click any shortcut badg
 MakeTask makes no network requests and its app target has outgoing network access disabled. Data is stored locally by SwiftData in the app's sandbox container. Preferences are stored in `UserDefaults`.
 
 Use **Settings → Backup** to export a readable, versioned JSON file. Import validates the file before writing, assigns fresh identifiers, and adds its contents as new lists; it never deletes or overwrites current lists. MakeTask only accesses a backup location explicitly selected in the native macOS file panel. No account or internet connection is involved.
+
+## Tests
+
+Run the complete suite without opening MakeTask or touching real user data:
+
+```sh
+maketask --test
+```
+
+The test host automatically uses an in-memory SwiftData container and skips window restoration and global shortcut registration. Coverage currently includes JSON round trips, corrupt and forward-version backup rejection, safe additive import, fresh identifiers, duplicate-name handling, window bounds, default-list recovery, ordering, and cascade deletion.
 
 ## Next phases
 

@@ -109,6 +109,10 @@ Import is additive. It first saves current SwiftData changes, validates the comp
 
 MakeTask keeps native SwiftUI controls and keyboard focus behavior rather than requiring an Accessibility event tap. It follows the macOS Reduce Motion preference in SwiftUI task transitions, drag reordering, subtasks, selection scrolling, and the AppKit roll-up animation. Backup operations surface validation and filesystem errors in Settings instead of silently failing.
 
+## Test isolation
+
+`MakeTaskTests` is a hosted XCTest target so it can exercise internal backup and coordinator behavior. `AppRuntime` detects the XCTest host before application startup; tests receive an in-memory SwiftData container and skip window restoration and global hotkey registration. Each coordinator test also uses a unique `UserDefaults` suite. The suite therefore cannot read, overwrite, reveal, or reposition the user's real notes.
+
 ## Performance characteristics
 
 - No polling, telemetry, network requests, or background sync.

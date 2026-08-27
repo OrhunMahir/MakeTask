@@ -15,7 +15,9 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         do {
-            modelContainer = try PersistenceController.makeContainer()
+            modelContainer = try PersistenceController.makeContainer(
+                inMemory: AppRuntime.isRunningTests
+            )
         } catch {
             fatalError("Could not create MakeTask's local data store: \(error)")
         }
@@ -27,6 +29,7 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         settings.applyAppearance()
+        guard !AppRuntime.isRunningTests else { return }
         windowCoordinator.start()
     }
 
