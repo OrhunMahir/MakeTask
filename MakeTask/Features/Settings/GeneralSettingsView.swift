@@ -6,6 +6,7 @@ struct GeneralSettingsView: View {
 
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var launchAtLogin: LaunchAtLoginService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Form {
@@ -58,6 +59,19 @@ struct GeneralSettingsView: View {
                 .disabled(settings.completionSound == .none)
             } header: {
                 Text("Tasks")
+            }
+
+            Section {
+                Label(
+                    reduceMotion ? "Reduce Motion is active" : "Follows macOS Reduce Motion",
+                    systemImage: reduceMotion ? "figure.walk.motion" : "figure.walk"
+                )
+
+                Text("Primary note actions are keyboard accessible. When Reduce Motion is enabled in macOS, note roll-up and task movement switch to immediate, non-sliding updates.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Accessibility")
             }
 
             Section {

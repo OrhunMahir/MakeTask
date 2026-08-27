@@ -108,6 +108,8 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
 
     func setCollapsed(_ collapsed: Bool, animated: Bool, persist: Bool = true) {
         guard let panel = window, !isChangingCollapseState else { return }
+        let shouldAnimate = animated
+            && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let currentFrame = panel.frame
         let top = currentFrame.maxY
 
@@ -125,7 +127,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
                 height: NoteWindowMetrics.headerHeight
             )
 
-            if animated {
+            if shouldAnimate {
                 isChangingCollapseState = true
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.18
@@ -156,7 +158,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
                 width: max(currentFrame.width, NoteWindowMetrics.minimumWidth),
                 height: expandedHeight
             )
-            if animated {
+            if shouldAnimate {
                 isChangingCollapseState = true
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.18

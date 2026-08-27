@@ -6,6 +6,7 @@ struct NoteView: View {
 
     @EnvironmentObject private var coordinator: WindowCoordinator
     @EnvironmentObject private var settings: AppSettings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var newTaskTitle = ""
     @State private var isConfirmingDelete = false
     @State private var isConfirmingClearCompleted = false
@@ -97,7 +98,7 @@ struct NoteView: View {
                                             }
                                         }
                                         .transition(
-                                            .asymmetric(
+                                            reduceMotion ? .opacity : .asymmetric(
                                                 insertion: .opacity.combined(with: .offset(y: -12)),
                                                 removal: .opacity.combined(with: .offset(y: -26))
                                             )
@@ -109,11 +110,13 @@ struct NoteView: View {
                         .padding(.vertical, 6)
                         .frame(maxWidth: .infinity)
                         .animation(
-                            .interactiveSpring(response: 0.24, dampingFraction: 0.86),
+                            reduceMotion
+                                ? nil
+                                : .interactiveSpring(response: 0.24, dampingFraction: 0.86),
                             value: taskOrderAnimationValue
                         )
                         .animation(
-                            .easeInOut(duration: 0.34),
+                            reduceMotion ? nil : .easeInOut(duration: 0.34),
                             value: taskCompletionAnimationValue
                         )
                     }
@@ -128,7 +131,11 @@ struct NoteView: View {
                     }
                     .onDrop(
                         of: [UTType.text],
-                        delegate: TaskListDropDelegate(targetList: list, coordinator: coordinator)
+                        delegate: TaskListDropDelegate(
+                            targetList: list,
+                            coordinator: coordinator,
+                            reduceMotion: reduceMotion
+                        )
                     )
                     .onChange(of: selectedTaskID) { _, taskID in
                         guard let taskID else { return }
@@ -157,7 +164,7 @@ struct NoteView: View {
             RoundedRectangle(cornerRadius: NoteWindowMetrics.cornerRadius, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.75)
         }
-        .animation(.easeInOut(duration: 0.16), value: isSearching)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: isSearching)
         .onReceive(coordinator.$focusNewTaskListID) { listID in
             guard listID == list.id, !list.isCollapsed else { return }
             isNewTaskFocused = true
@@ -240,7 +247,7 @@ struct NoteView: View {
         .padding(.horizontal, 12)
         .frame(height: 34)
         .background(Color.primary.opacity(0.035))
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
     }
 
     private func emptyState(title: String, icon: String) -> some View {
@@ -319,7 +326,7 @@ struct NoteView: View {
             if expandedTaskID == task.id {
                 expandedTaskID = nil
             }
-            withAnimation(.easeInOut(duration: 0.34)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.34)) {
                 coordinator.toggleTask(task)
             }
         case .editSelectedTask:
@@ -329,7 +336,7 @@ struct NoteView: View {
             guard let task = selectedTask(orSelectFirst: false) else { return }
             expandedTaskID = nil
             editingTaskID = nil
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                 coordinator.deleteTask(task)
             }
         case .moveSelectedTaskUp:
@@ -380,7 +387,7 @@ struct NoteView: View {
 
         let targetIndex = currentIndex + offset
         guard keyboardTasks.indices.contains(targetIndex) else { return }
-        withAnimation(.snappy(duration: 0.20)) {
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.20)) {
             coordinator.swapTaskPositions(keyboardTasks[currentIndex], keyboardTasks[targetIndex])
         }
     }
@@ -403,7 +410,7 @@ struct NoteView: View {
 
     private func toggleCompletedSection() {
         guard !visibleCompletedTasks.isEmpty else { return }
-        withAnimation(.easeInOut(duration: 0.22)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
             list.isCompletedSectionCollapsed.toggle()
             if list.isCompletedSectionCollapsed,
                let selectedTaskID,
@@ -422,7 +429,7 @@ struct NoteView: View {
             defer { selectionMovement = 0 }
 
             guard let frame = taskRowFrames[taskID], taskViewportHeight > 0 else {
-                withAnimation(.easeInOut(duration: 0.16)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
                     scrollProxy.scrollTo(taskID, anchor: movement > 0 ? .bottom : .top)
                 }
                 return
@@ -430,11 +437,11 @@ struct NoteView: View {
 
             let viewportMargin: CGFloat = 3
             if frame.minY < viewportMargin {
-                withAnimation(.easeInOut(duration: 0.16)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
                     scrollProxy.scrollTo(taskID, anchor: .top)
                 }
             } else if frame.maxY > taskViewportHeight - viewportMargin {
-                withAnimation(.easeInOut(duration: 0.16)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
                     scrollProxy.scrollTo(taskID, anchor: .bottom)
                 }
             }

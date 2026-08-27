@@ -11,6 +11,7 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
         settings: settings,
         launchAtLogin: launchAtLogin
     )
+    lazy var localBackup = LocalBackupService(coordinator: windowCoordinator)
 
     override init() {
         do {

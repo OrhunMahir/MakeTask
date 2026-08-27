@@ -11,7 +11,7 @@ MakeTask has no conventional document or main window. The application lifecycle 
 1. `MenuBarExtra` is the always-available control surface.
 2. `Settings` creates a standard preferences window only when requested.
 
-Settings includes General, Appearance, Shortcuts, and Guide tabs. The Guide is an in-app reference and quick-action surface; the menu bar can open it directly without introducing a permanent main window.
+Settings includes General, Appearance, Shortcuts, Backup, and Guide tabs. The Guide is an in-app reference and quick-action surface; the menu bar can open it directly without introducing a permanent main window.
 
 `MakeTaskAppDelegate` creates the shared SwiftData container, preferences, login-item service, and `WindowCoordinator`. On launch, the coordinator registers the configured global shortcuts and restores each non-hidden list window.
 
@@ -98,6 +98,16 @@ Quick Add is a short-lived borderless floating panel centered on the screen cont
 `GlobalHotKeyService` installs a Carbon application event handler and filters events by `EventHotKeyID`, allowing independently configurable Quick Add and note-visibility registrations. Carbon hotkeys are native, efficient, global, and do not require an accessibility event tap. A local AppKit key monitor resolves all note-scoped events through the same shortcut map while respecting active text fields. Failed macOS global registrations restore the previous working combination instead of silently replacing it.
 
 Due-date refreshes use one scheduled work item for the nearest upcoming incomplete task. When it fires, `WindowCoordinator` publishes a new reference date and schedules the next deadline. This updates **Missed due date** labels without per-row polling.
+
+## Local backup
+
+`MakeTaskBackupDocument` is a versioned Codable representation of lists, tasks, subtasks, ordering, details, and note-window state. `LocalBackupService` uses sandbox-aware native open/save panels and atomic JSON writes. Before import, it rejects malformed files, unsupported or newer formats, duplicate identifiers, invalid geometry, excessive text, and oversized data.
+
+Import is additive. It first saves current SwiftData changes, validates the complete document, inserts the backup with fresh identifiers, and saves once. A failed save rolls back the import. Existing lists are never deleted or overwritten, duplicate names receive an **Imported** suffix, and imported note dimensions are clamped before their windows are restored.
+
+## Accessibility and resilience
+
+MakeTask keeps native SwiftUI controls and keyboard focus behavior rather than requiring an Accessibility event tap. It follows the macOS Reduce Motion preference in SwiftUI task transitions, drag reordering, subtasks, selection scrolling, and the AppKit roll-up animation. Backup operations surface validation and filesystem errors in Settings instead of silently failing.
 
 ## Performance characteristics
 

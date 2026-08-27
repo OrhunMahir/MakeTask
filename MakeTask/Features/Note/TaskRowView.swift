@@ -10,6 +10,7 @@ struct TaskRowView: View {
     @Binding var expandedTaskID: UUID?
 
     @EnvironmentObject private var coordinator: WindowCoordinator
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
     @State private var titleDraft = ""
     @State private var rowSize: CGSize = .zero
@@ -81,8 +82,8 @@ struct TaskRowView: View {
             }
         }
         .zIndex(isDragging ? 2 : 0)
-        .animation(.easeOut(duration: 0.12), value: isSelected)
-        .animation(.easeInOut(duration: 0.18), value: isExpanded)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isSelected)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: isExpanded)
         .onHover { isHovering = $0 }
         .contextMenu {
             Button("Edit Task") {
@@ -116,7 +117,8 @@ struct TaskRowView: View {
                 targetTask: task,
                 targetList: list,
                 coordinator: coordinator,
-                targetHeight: rowSize.height
+                targetHeight: rowSize.height,
+                reduceMotion: reduceMotion
             )
         )
         .background {
@@ -220,7 +222,7 @@ struct TaskRowView: View {
                         previewWidth: max(rowSize.width, 220),
                         onClick: {
                             selectedTaskID = task.id
-                            withAnimation(.easeInOut(duration: 0.18)) {
+                            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
                                 expandedTaskID = isExpanded ? nil : task.id
                             }
                         },
@@ -263,7 +265,7 @@ struct TaskRowView: View {
         if expandedTaskID == task.id {
             expandedTaskID = nil
         }
-        withAnimation(.easeInOut(duration: 0.34)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.34)) {
             coordinator.toggleTask(task)
         }
     }
@@ -287,6 +289,7 @@ private struct TaskRowDropDelegate: DropDelegate {
     let targetList: TodoList
     let coordinator: WindowCoordinator
     let targetHeight: CGFloat
+    let reduceMotion: Bool
 
     func validateDrop(info: DropInfo) -> Bool {
         coordinator.draggedTaskID != nil
@@ -318,7 +321,9 @@ private struct TaskRowDropDelegate: DropDelegate {
         let edge: TaskDropEdge = info.location.y < rowHeight / 2 ? .top : .bottom
         coordinator.updateTaskDropTarget(targetTask: targetTask, edge: edge)
 
-        _ = withAnimation(.interactiveSpring(response: 0.24, dampingFraction: 0.86)) {
+        _ = withAnimation(
+            reduceMotion ? nil : .interactiveSpring(response: 0.24, dampingFraction: 0.86)
+        ) {
             coordinator.moveTask(
                 id: draggedTaskID,
                 to: targetList,
@@ -333,6 +338,7 @@ private struct TaskRowDropDelegate: DropDelegate {
 struct TaskListDropDelegate: DropDelegate {
     let targetList: TodoList
     let coordinator: WindowCoordinator
+    let reduceMotion: Bool
 
     func validateDrop(info: DropInfo) -> Bool {
         coordinator.draggedTaskID != nil
@@ -344,7 +350,7 @@ struct TaskListDropDelegate: DropDelegate {
 
     func performDrop(info: DropInfo) -> Bool {
         guard let draggedTaskID = coordinator.draggedTaskID else { return false }
-        _ = withAnimation(.snappy(duration: 0.20)) {
+        _ = withAnimation(reduceMotion ? nil : .snappy(duration: 0.20)) {
             coordinator.moveTask(
                 id: draggedTaskID,
                 to: targetList,

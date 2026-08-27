@@ -22,6 +22,7 @@ struct MakeTaskApp: App {
                 .environmentObject(appDelegate.windowCoordinator)
                 .environmentObject(appDelegate.settings)
                 .environmentObject(appDelegate.launchAtLogin)
+                .environmentObject(appDelegate.localBackup)
         }
         .commands {
             CommandGroup(replacing: .newItem) {

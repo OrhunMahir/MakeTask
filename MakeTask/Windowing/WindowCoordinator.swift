@@ -901,6 +901,142 @@ final class WindowCoordinator: ObservableObject {
         }
     }
 
+    func makeBackupDocument() throws -> MakeTaskBackupDocument {
+        if context.hasChanges {
+            try context.save()
+        }
+        let appVersion = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "unknown"
+        let lists = try context.fetch(
+            FetchDescriptor<TodoList>(sortBy: [SortDescriptor(\TodoList.sortOrder)])
+        )
+        let listIDs = Set(lists.map(\.id))
+        return MakeTaskBackupDocument(
+            lists: lists,
+            sourceAppVersion: appVersion,
+            defaultListID: settings.defaultListID.flatMap {
+                listIDs.contains($0) ? $0 : nil
+            },
+            lastQuickCaptureListID: settings.lastQuickCaptureListID.flatMap {
+                listIDs.contains($0) ? $0 : nil
+            }
+        )
+    }
+
+    func importBackup(
+        _ document: MakeTaskBackupDocument
+    ) throws -> MakeTaskBackupImportResult {
+        try document.validate()
+        if context.hasChanges {
+            try context.save()
+        }
+
+        let existingLists = try context.fetch(
+            FetchDescriptor<TodoList>(sortBy: [SortDescriptor(\TodoList.sortOrder)])
+        )
+        var usedNames = Set(existingLists.map { $0.title.lowercased() })
+        let firstImportedOrder = (existingLists.map(\.sortOrder).max() ?? -1) + 1
+        var importedLists: [TodoList] = []
+        var importedListsByOriginalID: [UUID: TodoList] = [:]
+
+        let orderedRecords = document.lists.sorted {
+            if $0.sortOrder == $1.sortOrder {
+                return $0.createdAt < $1.createdAt
+            }
+            return $0.sortOrder < $1.sortOrder
+        }
+
+        do {
+            for (listIndex, record) in orderedRecords.enumerated() {
+                let list = TodoList(
+                    title: uniqueImportedListName(record.title, usedNames: &usedNames),
+                    color: NoteColor(rawValue: record.colorRawValue) ?? .yellow,
+                    sortOrder: firstImportedOrder + Double(listIndex),
+                    createdAt: record.createdAt,
+                    windowX: record.windowX,
+                    windowTop: record.windowTop,
+                    windowWidth: min(max(record.windowWidth, NoteWindowMetrics.minimumWidth), 2_000),
+                    windowHeight: min(
+                        max(record.windowHeight, NoteWindowMetrics.headerHeight + 120),
+                        2_000
+                    ),
+                    isCollapsed: record.isCollapsed,
+                    isCompletedSectionCollapsed: record.isCompletedSectionCollapsed,
+                    isHidden: record.isHidden,
+                    windowMode: WindowMode(rawValue: record.windowModeRawValue) ?? .normal
+                )
+                context.insert(list)
+                importedLists.append(list)
+                importedListsByOriginalID[record.id] = list
+
+                let orderedTasks = record.tasks.sorted {
+                    if $0.sortOrder == $1.sortOrder {
+                        return $0.createdAt < $1.createdAt
+                    }
+                    return $0.sortOrder < $1.sortOrder
+                }
+                for (taskIndex, taskRecord) in orderedTasks.enumerated() {
+                    let task = TodoTask(
+                        title: taskRecord.title.trimmingCharacters(in: .whitespacesAndNewlines),
+                        notes: taskRecord.notes,
+                        dueDate: taskRecord.dueDate,
+                        priority: TaskPriority(rawValue: taskRecord.priority)?.rawValue ?? 0,
+                        isCompleted: taskRecord.isCompleted,
+                        completedAt: taskRecord.isCompleted ? taskRecord.completedAt : nil,
+                        createdAt: taskRecord.createdAt,
+                        sortOrder: Double(taskIndex),
+                        list: list
+                    )
+                    context.insert(task)
+
+                    let orderedSubtasks = taskRecord.subtasks.sorted {
+                        if $0.sortOrder == $1.sortOrder {
+                            return $0.createdAt < $1.createdAt
+                        }
+                        return $0.sortOrder < $1.sortOrder
+                    }
+                    for (subtaskIndex, subtaskRecord) in orderedSubtasks.enumerated() {
+                        let subtask = TodoSubtask(
+                            title: subtaskRecord.title.trimmingCharacters(in: .whitespacesAndNewlines),
+                            isCompleted: subtaskRecord.isCompleted,
+                            completedAt: subtaskRecord.isCompleted ? subtaskRecord.completedAt : nil,
+                            createdAt: subtaskRecord.createdAt,
+                            sortOrder: Double(subtaskIndex),
+                            task: task
+                        )
+                        context.insert(subtask)
+                    }
+                }
+            }
+
+            try context.save()
+        } catch {
+            context.rollback()
+            throw error
+        }
+
+        if settings.defaultListID == nil,
+           let originalID = document.defaultListID,
+           let importedDefault = importedListsByOriginalID[originalID] {
+            settings.defaultListID = importedDefault.id
+        }
+        if settings.lastQuickCaptureListID == nil,
+           let originalID = document.lastQuickCaptureListID,
+           let importedQuickCaptureList = importedListsByOriginalID[originalID] {
+            settings.lastQuickCaptureListID = importedQuickCaptureList.id
+        }
+
+        importedLists.filter { !$0.isHidden }.forEach(show)
+        scheduleNextDueDateRefresh()
+
+        return MakeTaskBackupImportResult(
+            listCount: importedLists.count,
+            taskCount: document.taskCount,
+            subtaskCount: document.subtaskCount
+        )
+    }
+
     @discardableResult
     func undoLastAction() -> Bool {
         guard let action = undoActions.popLast() else { return false }
@@ -1202,6 +1338,27 @@ final class WindowCoordinator: ObservableObject {
             suffix += 1
         }
         return "New List \(suffix)"
+    }
+
+    private func uniqueImportedListName(
+        _ originalName: String,
+        usedNames: inout Set<String>
+    ) -> String {
+        let trimmed = originalName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let baseName = trimmed.isEmpty ? "Imported List" : trimmed
+        if usedNames.insert(baseName.lowercased()).inserted {
+            return baseName
+        }
+
+        var suffix = 1
+        while true {
+            let suffixText = suffix == 1 ? "Imported" : "Imported \(suffix)"
+            let candidate = "\(baseName) (\(suffixText))"
+            if usedNames.insert(candidate.lowercased()).inserted {
+                return candidate
+            }
+            suffix += 1
+        }
     }
 
     private func migrateLegacyWindowDefaultsIfNeeded() {

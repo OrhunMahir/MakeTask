@@ -8,6 +8,7 @@ final class AppSettings: ObservableObject {
         case general
         case appearance
         case shortcuts
+        case backup
         case guide
     }
 

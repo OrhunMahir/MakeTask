@@ -34,8 +34,10 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - Quick Add can reveal a hidden target note and automatically restores it after adding a task
 - Hidden notes remain visible in the menu bar and `⌘⇧H` shows them again
 - Direct shortcut recording for every MakeTask action, with persistence, conflict detection, per-action reset, and Reset All
+- Versioned local JSON backup with native Export and Import panels; imports add new lists without overwriting existing data
 - SwiftData persistence for tasks and note window state
 - System, light, and dark appearance with native vibrancy and live 45–100% note-window opacity
+- Respects macOS Reduce Motion for note roll-up, task transitions, subtasks, and drag reordering
 - Launch at Login through `SMAppService`
 - Fully offline; no account, analytics, telemetry, or network entitlement
 
@@ -161,7 +163,7 @@ MakeTask/
 ├── App/                 App entry point and delegate
 ├── Models/              SwiftData models and value types
 ├── Persistence/         ModelContainer construction
-├── Services/            Preferences, global hotkey, login item
+├── Services/            Preferences, backup, global hotkey, login item
 ├── Windowing/           NSPanel controllers and coordination
 ├── Features/
 │   ├── MenuBar/
@@ -206,9 +208,10 @@ These are the defaults. Open **Settings → Shortcuts**, click any shortcut badg
 
 MakeTask makes no network requests and its app target has outgoing network access disabled. Data is stored locally by SwiftData in the app's sandbox container. Preferences are stored in `UserDefaults`.
 
+Use **Settings → Backup** to export a readable, versioned JSON file. Import validates the file before writing, assigns fresh identifiers, and adds its contents as new lists; it never deletes or overwrites current lists. MakeTask only accesses a backup location explicitly selected in the native macOS file panel. No account or internet connection is involved.
+
 ## Next phases
 
-- Optional local export/import
 - Automated UI coverage and keyboard interaction refinements
 - Optional cloud sync, only as an explicit opt-in feature
 

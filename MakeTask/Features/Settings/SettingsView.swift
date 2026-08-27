@@ -24,6 +24,12 @@ struct SettingsView: View {
                 }
                 .tag(AppSettings.SettingsTab.shortcuts)
 
+            BackupSettingsView()
+                .tabItem {
+                    Label("Backup", systemImage: "externaldrive")
+                }
+                .tag(AppSettings.SettingsTab.backup)
+
             GuideView()
                 .tabItem {
                     Label("Guide", systemImage: "questionmark.circle")

@@ -4,6 +4,7 @@ struct TaskDetailView: View {
     @Bindable var task: TodoTask
 
     @EnvironmentObject private var coordinator: WindowCoordinator
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var notesSaveWorkItem: DispatchWorkItem?
     @State private var newSubtaskTitle = ""
     @FocusState private var isNewSubtaskFocused: Bool
@@ -174,7 +175,7 @@ struct TaskDetailView: View {
                     }
                 }
                 .animation(
-                    .easeInOut(duration: 0.18),
+                    reduceMotion ? nil : .easeInOut(duration: 0.18),
                     value: task.orderedSubtasks.map { "\($0.id)-\($0.isCompleted)" }
                 )
             }
@@ -215,7 +216,7 @@ struct TaskDetailView: View {
     private func addSubtask() {
         let trimmed = newSubtaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        withAnimation(.easeInOut(duration: 0.18)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
             coordinator.addSubtask(title: trimmed, to: task)
         }
         newSubtaskTitle = ""
@@ -228,6 +229,7 @@ private struct SubtaskRowView: View {
     let tint: Color
 
     @EnvironmentObject private var coordinator: WindowCoordinator
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
     @State private var isEditing = false
     @State private var titleDraft = ""
@@ -236,7 +238,7 @@ private struct SubtaskRowView: View {
     var body: some View {
         HStack(spacing: 7) {
             Button {
-                withAnimation(.easeInOut(duration: 0.18)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
                     coordinator.toggleSubtask(subtask)
                 }
             } label: {
@@ -266,7 +268,7 @@ private struct SubtaskRowView: View {
 
             if isHovering && !isEditing {
                 Button {
-                    withAnimation(.easeInOut(duration: 0.16)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
                         coordinator.deleteSubtask(subtask)
                     }
                 } label: {
