@@ -583,6 +583,9 @@ final class WindowCoordinator: ObservableObject {
         subtask.completedAt = subtask.isCompleted ? .now : nil
         let updatedCompleted = subtask.isCompleted
         let updatedCompletedAt = subtask.completedAt
+        if subtask.isCompleted {
+            settings.playSubtaskCompletionSound()
+        }
         saveContext()
 
         registerUndoAction(

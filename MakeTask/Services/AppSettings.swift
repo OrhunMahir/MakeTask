@@ -218,6 +218,10 @@ final class AppSettings: ObservableObject {
         completionSound.play(volume: completionSoundVolume)
     }
 
+    func playSubtaskCompletionSound() {
+        completionSound.play(volume: completionSoundVolume * 0.35)
+    }
+
     static func keyName(for keyCode: UInt32) -> String {
         switch Int(keyCode) {
         case kVK_Space: "Space"
