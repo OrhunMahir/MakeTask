@@ -33,7 +33,7 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - Global Quick Add, defaulting to `⌘⇧Space`
 - Quick Add can reveal a hidden target note and automatically restores it after adding a task
 - Hidden notes remain visible in the menu bar and `⌘⇧H` shows them again
-- Configurable global Quick Add key and modifiers
+- Direct shortcut recording for every MakeTask action, with persistence, conflict detection, per-action reset, and Reset All
 - SwiftData persistence for tasks and note window state
 - System, light, and dark appearance with native vibrancy and live 45–100% note-window opacity
 - Launch at Login through `SMAppService`
@@ -122,7 +122,7 @@ The Quick Add surface is another small borderless panel. It is created on demand
 
 ### Global shortcut
 
-`GlobalHotKeyService` uses Carbon's `RegisterEventHotKey`. This works across applications without an Accessibility permission prompt or a keyboard event tap. The default registration is Command + Shift + Space. Settings can change the key and modifier combination.
+`GlobalHotKeyService` uses Carbon's `RegisterEventHotKey`. This works across applications without an Accessibility permission prompt or a keyboard event tap. Quick Add and Show/Hide All remain global; every MakeTask action can be recorded directly in Settings. Internal duplicates are rejected immediately, and global registration conflicts are surfaced without replacing the last working shortcut.
 
 ### True roll-up
 
@@ -176,6 +176,8 @@ More detail is available in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Keyboard shortcuts
 
+These are the defaults. Open **Settings → Shortcuts**, click any shortcut badge, and press a new combination to change it. Each action can be reset independently, or the entire map can be restored with **Reset All to Defaults**. MakeTask rejects duplicates and common reserved macOS combinations; the standard Settings (`⌘,`), Quit (`⌘Q`), and text-cancellation (`Escape`) commands remain native and fixed.
+
 | Action | Default |
 | --- | --- |
 | Global Quick Add | `⌘⇧Space` |
@@ -206,7 +208,6 @@ MakeTask makes no network requests and its app target has outgoing network acces
 
 ## Next phases
 
-- Broader shortcut recording
 - Optional local export/import
 - Automated UI coverage and keyboard interaction refinements
 - Optional cloud sync, only as an explicit opt-in feature

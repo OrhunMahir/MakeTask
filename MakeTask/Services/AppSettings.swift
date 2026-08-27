@@ -1,5 +1,4 @@
 import AppKit
-import Carbon.HIToolbox
 import Combine
 import Foundation
 
@@ -90,6 +89,7 @@ final class AppSettings: ObservableObject {
         static let completionSoundVolume = "completionSoundVolume"
         static let defaultListID = "defaultListID"
         static let lastQuickCaptureListID = "lastQuickCaptureListID"
+        static let shortcutBindings = "shortcutBindings.v2"
         static let quickAddKeyCode = "quickAddKeyCode"
         static let quickAddCommand = "quickAddCommand"
         static let quickAddShift = "quickAddShift"
@@ -136,24 +136,8 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(lastQuickCaptureListID?.uuidString, forKey: Key.lastQuickCaptureListID) }
     }
 
-    @Published var quickAddKeyCode: UInt32 {
-        didSet { defaults.set(Int(quickAddKeyCode), forKey: Key.quickAddKeyCode) }
-    }
-
-    @Published var quickAddUsesCommand: Bool {
-        didSet { defaults.set(quickAddUsesCommand, forKey: Key.quickAddCommand) }
-    }
-
-    @Published var quickAddUsesShift: Bool {
-        didSet { defaults.set(quickAddUsesShift, forKey: Key.quickAddShift) }
-    }
-
-    @Published var quickAddUsesOption: Bool {
-        didSet { defaults.set(quickAddUsesOption, forKey: Key.quickAddOption) }
-    }
-
-    @Published var quickAddUsesControl: Bool {
-        didSet { defaults.set(quickAddUsesControl, forKey: Key.quickAddControl) }
+    @Published private(set) var shortcutBindings: [AppShortcutAction: AppShortcut] {
+        didSet { persistShortcutBindings() }
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -174,33 +158,44 @@ final class AppSettings: ObservableObject {
         completionSoundVolume = min(max(savedSoundVolume, 0), 1)
         defaultListID = defaults.string(forKey: Key.defaultListID).flatMap(UUID.init(uuidString:))
         lastQuickCaptureListID = defaults.string(forKey: Key.lastQuickCaptureListID).flatMap(UUID.init(uuidString:))
-
-        quickAddKeyCode = UInt32(
-            defaults.object(forKey: Key.quickAddKeyCode) as? Int ?? Int(kVK_Space)
-        )
-        quickAddUsesCommand = defaults.object(forKey: Key.quickAddCommand) as? Bool ?? true
-        quickAddUsesShift = defaults.object(forKey: Key.quickAddShift) as? Bool ?? true
-        quickAddUsesOption = defaults.bool(forKey: Key.quickAddOption)
-        quickAddUsesControl = defaults.bool(forKey: Key.quickAddControl)
-    }
-
-    var quickAddCarbonModifiers: UInt32 {
-        var modifiers: UInt32 = 0
-        if quickAddUsesCommand { modifiers |= UInt32(cmdKey) }
-        if quickAddUsesShift { modifiers |= UInt32(shiftKey) }
-        if quickAddUsesOption { modifiers |= UInt32(optionKey) }
-        if quickAddUsesControl { modifiers |= UInt32(controlKey) }
-        return modifiers
+        shortcutBindings = Self.loadShortcutBindings(from: defaults)
     }
 
     var quickAddShortcutDescription: String {
-        var result = ""
-        if quickAddUsesControl { result += "⌃" }
-        if quickAddUsesOption { result += "⌥" }
-        if quickAddUsesShift { result += "⇧" }
-        if quickAddUsesCommand { result += "⌘" }
-        result += Self.keyName(for: quickAddKeyCode)
-        return result
+        shortcutDescription(for: .quickAdd)
+    }
+
+    func shortcut(for action: AppShortcutAction) -> AppShortcut {
+        shortcutBindings[action] ?? action.defaultShortcut
+    }
+
+    func shortcutDescription(for action: AppShortcutAction) -> String {
+        shortcut(for: action).displayString
+    }
+
+    func action(matching event: NSEvent) -> AppShortcutAction? {
+        AppShortcutAction.allCases.first { shortcut(for: $0).matches(event) }
+    }
+
+    func conflictingActions(
+        for shortcut: AppShortcut,
+        excluding action: AppShortcutAction
+    ) -> [AppShortcutAction] {
+        AppShortcutAction.allCases.filter {
+            $0 != action && self.shortcut(for: $0) == shortcut
+        }
+    }
+
+    func setShortcut(_ shortcut: AppShortcut, for action: AppShortcutAction) {
+        shortcutBindings[action] = shortcut
+    }
+
+    func resetShortcut(_ action: AppShortcutAction) {
+        shortcutBindings[action] = action.defaultShortcut
+    }
+
+    func resetAllShortcuts() {
+        shortcutBindings = Self.defaultShortcutBindings
     }
 
     func applyAppearance() {
@@ -222,14 +217,53 @@ final class AppSettings: ObservableObject {
         completionSound.play(volume: completionSoundVolume * 0.35)
     }
 
-    static func keyName(for keyCode: UInt32) -> String {
-        switch Int(keyCode) {
-        case kVK_Space: "Space"
-        case kVK_Return: "Return"
-        case kVK_ANSI_A: "A"
-        case kVK_ANSI_N: "N"
-        case kVK_ANSI_T: "T"
-        default: "Key \(keyCode)"
+    private static var defaultShortcutBindings: [AppShortcutAction: AppShortcut] {
+        Dictionary(uniqueKeysWithValues: AppShortcutAction.allCases.map {
+            ($0, $0.defaultShortcut)
+        })
+    }
+
+    private static func loadShortcutBindings(
+        from defaults: UserDefaults
+    ) -> [AppShortcutAction: AppShortcut] {
+        var result = defaultShortcutBindings
+
+        if let data = defaults.data(forKey: Key.shortcutBindings),
+           let stored = try? JSONDecoder().decode([String: AppShortcut].self, from: data) {
+            for (rawAction, shortcut) in stored {
+                guard let action = AppShortcutAction(rawValue: rawAction) else { continue }
+                result[action] = shortcut
+            }
+            return result
         }
+
+        var legacyModifiers: ShortcutModifiers = []
+        if defaults.object(forKey: Key.quickAddCommand) as? Bool ?? true {
+            legacyModifiers.insert(.command)
+        }
+        if defaults.object(forKey: Key.quickAddShift) as? Bool ?? true {
+            legacyModifiers.insert(.shift)
+        }
+        if defaults.bool(forKey: Key.quickAddOption) {
+            legacyModifiers.insert(.option)
+        }
+        if defaults.bool(forKey: Key.quickAddControl) {
+            legacyModifiers.insert(.control)
+        }
+        let legacyKeyCode = defaults.object(forKey: Key.quickAddKeyCode) as? Int
+            ?? Int(AppShortcutAction.quickAdd.defaultShortcut.keyCode)
+        result[.quickAdd] = AppShortcut(
+            keyCode: legacyKeyCode,
+            modifiers: legacyModifiers
+        )
+        return result
+    }
+
+    private func persistShortcutBindings() {
+        let stored = Dictionary(uniqueKeysWithValues: shortcutBindings.map {
+            ($0.key.rawValue, $0.value)
+        })
+        guard let data = try? JSONEncoder().encode(stored) else { return }
+        defaults.set(data, forKey: Key.shortcutBindings)
     }
 }

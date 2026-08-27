@@ -13,7 +13,7 @@ MakeTask has no conventional document or main window. The application lifecycle 
 
 Settings includes General, Appearance, Shortcuts, and Guide tabs. The Guide is an in-app reference and quick-action surface; the menu bar can open it directly without introducing a permanent main window.
 
-`MakeTaskAppDelegate` creates the shared SwiftData container, preferences, login-item service, and `WindowCoordinator`. On launch, the coordinator registers the global shortcut and restores each non-hidden list window.
+`MakeTaskAppDelegate` creates the shared SwiftData container, preferences, login-item service, and `WindowCoordinator`. On launch, the coordinator registers the configured global shortcuts and restores each non-hidden list window.
 
 The generated Info.plist sets `LSUIElement` so MakeTask does not require a Dock icon or a normal main window.
 
@@ -41,7 +41,7 @@ Task ordering uses a persisted `Double`. An `NSViewRepresentable` starts the nat
 - completed-task visibility;
 - completion sound selection and volume;
 - default and last-used Quick Add lists;
-- global shortcut key and modifiers.
+- the complete encoded shortcut map, including migrated legacy Quick Add preferences.
 
 ### Ephemeral state
 
@@ -93,7 +93,9 @@ Quick Add is a short-lived borderless floating panel centered on the screen cont
 
 ## Global shortcut
 
-`GlobalHotKeyService` installs a Carbon application event handler and filters events by `EventHotKeyID`, allowing independent Quick Add and note-visibility registrations. Carbon hotkeys are native, efficient, global, and do not require an accessibility event tap. A local AppKit key monitor handles note-scoped commands such as hide, collapse, search, keyboard task selection, editing, deletion, reordering, cross-list moves, completed-section controls, undo, and numbered list switching while respecting active text fields. Registration failures are surfaced by `WindowCoordinator.errorMessage` rather than silently ignored.
+`AppShortcutAction` defines every configurable action and its default `AppShortcut`. `AppSettings` persists the full map as JSON in `UserDefaults`, detects internal duplicate combinations, and migrates the previous Quick Add preference. The Shortcuts tab temporarily unregisters global hotkeys while recording raw `NSEvent` key codes, validates the result, and supports per-action or complete reset.
+
+`GlobalHotKeyService` installs a Carbon application event handler and filters events by `EventHotKeyID`, allowing independently configurable Quick Add and note-visibility registrations. Carbon hotkeys are native, efficient, global, and do not require an accessibility event tap. A local AppKit key monitor resolves all note-scoped events through the same shortcut map while respecting active text fields. Failed macOS global registrations restore the previous working combination instead of silently replacing it.
 
 Due-date refreshes use one scheduled work item for the nearest upcoming incomplete task. When it fires, `WindowCoordinator` publishes a new reference date and schedules the next deadline. This updates **Missed due date** labels without per-row polling.
 

@@ -1,105 +1,211 @@
+import AppKit
 import Carbon.HIToolbox
 import SwiftUI
 
 struct ShortcutSettingsView: View {
-    private struct KeyOption: Identifiable {
-        let code: UInt32
-        let title: String
-        var id: UInt32 { code }
-    }
-
-    private let keyOptions = [
-        KeyOption(code: UInt32(kVK_Space), title: "Space"),
-        KeyOption(code: UInt32(kVK_Return), title: "Return"),
-        KeyOption(code: UInt32(kVK_ANSI_A), title: "A"),
-        KeyOption(code: UInt32(kVK_ANSI_N), title: "N"),
-        KeyOption(code: UInt32(kVK_ANSI_T), title: "T")
-    ]
-
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var coordinator: WindowCoordinator
+
+    @State private var recordingAction: AppShortcutAction?
+    @State private var validationMessages: [AppShortcutAction: String] = [:]
+    @State private var eventMonitor: Any?
 
     var body: some View {
         Form {
             Section {
-                LabeledContent("Current shortcut") {
-                    Text(settings.quickAddShortcutDescription)
-                        .font(.system(.body, design: .rounded, weight: .semibold))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
-                }
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Click a shortcut, then press the new key combination.")
+                            .font(.callout)
+                        Text("Esc cancels recording. Global shortcuts require at least one modifier key.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
 
-                Picker("Key", selection: $settings.quickAddKeyCode) {
-                    ForEach(keyOptions) { option in
-                        Text(option.title).tag(option.code)
+                    Spacer()
+
+                    Button("Reset All to Defaults") {
+                        resetAllShortcuts()
                     }
                 }
-
-                HStack(spacing: 18) {
-                    Toggle("⌘ Command", isOn: $settings.quickAddUsesCommand)
-                    Toggle("⇧ Shift", isOn: $settings.quickAddUsesShift)
-                    Toggle("⌥ Option", isOn: $settings.quickAddUsesOption)
-                    Toggle("⌃ Control", isOn: $settings.quickAddUsesControl)
-                }
-                .toggleStyle(.checkbox)
-
-                if noModifiersSelected {
-                    Label("Choose at least one modifier to avoid replacing normal typing.", systemImage: "exclamationmark.triangle.fill")
-                        .font(.callout)
-                        .foregroundStyle(.orange)
-                }
-            } header: {
-                Text("Global Quick Add")
             }
 
-            Section {
-                shortcutRow("New Task", shortcut: "⌘N")
-                shortcutRow("New List", shortcut: "⇧⌘N")
-                shortcutRow("Hide Current Note", shortcut: "⌘W")
-                shortcutRow("Collapse Current Note", shortcut: "⌘M")
-                shortcutRow("Show/Hide All Notes", shortcut: "⇧⌘H")
-                shortcutRow("Search Tasks", shortcut: "⌘F")
-                shortcutRow("Undo Last Action", shortcut: "⌘Z")
-                shortcutRow("Redo Last Action", shortcut: "⇧⌘Z")
-                shortcutRow("Delete Current Note", shortcut: "⌘⌫")
-                shortcutRow("Select Task", shortcut: "↑ / ↓")
-                shortcutRow("Complete Selected Task", shortcut: "Space")
-                shortcutRow("Edit Selected Task", shortcut: "Return")
-                shortcutRow("Delete Selected Task", shortcut: "⌫")
-                shortcutRow("Reorder Selected Task", shortcut: "⌥↑ / ⌥↓")
-                shortcutRow("Move Task Between Lists", shortcut: "⌃⌘← / ⌃⌘→")
-                shortcutRow("Rename Current List", shortcut: "⌘L")
-                shortcutRow("Toggle Completed Tasks", shortcut: "⇧⌘C")
-                shortcutRow("Clear Completed Tasks", shortcut: "⌥⌘⌫")
-                shortcutRow("Switch Lists", shortcut: "⌘1…9")
-            } header: {
-                Text("App Shortcuts")
+            ForEach(AppShortcutSection.allCases) { section in
+                Section {
+                    ForEach(actions(in: section)) { action in
+                        shortcutRow(for: action)
+                    }
+                } header: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(section.title)
+                        Text(section.detail)
+                            .font(.caption)
+                            .textCase(nil)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .formStyle(.grouped)
-        .onChange(of: shortcutSignature) { _, _ in
-            guard !noModifiersSelected else { return }
-            coordinator.reloadGlobalShortcut()
+        .onAppear(perform: installEventMonitor)
+        .onDisappear {
+            cancelRecording()
+            removeEventMonitor()
         }
     }
 
-    private var shortcutSignature: String {
-        "\(settings.quickAddKeyCode)-\(settings.quickAddUsesCommand)-\(settings.quickAddUsesShift)-\(settings.quickAddUsesOption)-\(settings.quickAddUsesControl)"
+    private func actions(in section: AppShortcutSection) -> [AppShortcutAction] {
+        AppShortcutAction.allCases.filter { $0.section == section }
     }
 
-    private var noModifiersSelected: Bool {
-        !settings.quickAddUsesCommand
-            && !settings.quickAddUsesShift
-            && !settings.quickAddUsesOption
-            && !settings.quickAddUsesControl
-    }
+    private func shortcutRow(for action: AppShortcutAction) -> some View {
+        HStack(alignment: .top, spacing: 11) {
+            Image(systemName: action.icon)
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 22, height: 24)
 
-    private func shortcutRow(_ title: String, shortcut: String) -> some View {
-        LabeledContent(title) {
-            Text(shortcut)
-                .foregroundStyle(.secondary)
-                .font(.system(.body, design: .rounded))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(action.title)
+                    .font(.system(size: 12.5, weight: .semibold))
+                Text(action.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if let message = validationMessages[action] {
+                    Label(message, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Spacer(minLength: 10)
+
+            Button {
+                startRecording(action)
+            } label: {
+                Text(recordingAction == action
+                     ? "Press keys…"
+                     : settings.shortcutDescription(for: action))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .frame(minWidth: 92)
+            }
+            .buttonStyle(.bordered)
+            .tint(recordingAction == action ? .accentColor : nil)
+            .help("Record a new shortcut")
+
+            Button {
+                resetShortcut(action)
+            } label: {
+                Image(systemName: "arrow.counterclockwise")
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(.borderless)
+            .disabled(settings.shortcut(for: action) == action.defaultShortcut)
+            .help("Reset this shortcut")
         }
+        .padding(.vertical, 3)
+    }
+
+    private func installEventMonitor() {
+        guard eventMonitor == nil else { return }
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard recordingAction != nil else { return event }
+            record(event)
+            return nil
+        }
+    }
+
+    private func removeEventMonitor() {
+        guard let eventMonitor else { return }
+        NSEvent.removeMonitor(eventMonitor)
+        self.eventMonitor = nil
+    }
+
+    private func startRecording(_ action: AppShortcutAction) {
+        validationMessages[action] = nil
+        recordingAction = action
+        coordinator.beginShortcutRecording()
+    }
+
+    private func record(_ event: NSEvent) {
+        guard let action = recordingAction, !event.isARepeat else { return }
+
+        if Int(event.keyCode) == kVK_Escape {
+            cancelRecording()
+            return
+        }
+
+        let shortcut = AppShortcut(event: event)
+        if action.isGlobal && shortcut.modifiers.isEmpty {
+            validationMessages[action] = "Global shortcuts need Command, Shift, Option, or Control."
+            cancelRecording(keepingMessage: true)
+            return
+        }
+
+        if let systemConflictDescription = shortcut.systemConflictDescription {
+            validationMessages[action] = systemConflictDescription + "."
+            cancelRecording(keepingMessage: true)
+            return
+        }
+
+        let conflicts = settings.conflictingActions(for: shortcut, excluding: action)
+        if !conflicts.isEmpty {
+            let names = conflicts.map(\.title).joined(separator: ", ")
+            validationMessages[action] = "Already used by \(names)."
+            cancelRecording(keepingMessage: true)
+            return
+        }
+
+        let previousShortcut = settings.shortcut(for: action)
+        settings.setShortcut(shortcut, for: action)
+        recordingAction = nil
+        let registrationError = coordinator.endShortcutRecording()
+
+        if action.isGlobal, let registrationError {
+            settings.setShortcut(previousShortcut, for: action)
+            _ = coordinator.reloadGlobalShortcuts()
+            validationMessages[action] = registrationError
+        } else {
+            validationMessages[action] = nil
+        }
+    }
+
+    private func resetShortcut(_ action: AppShortcutAction) {
+        cancelRecording()
+        let defaultShortcut = action.defaultShortcut
+        let conflicts = settings.conflictingActions(for: defaultShortcut, excluding: action)
+        guard conflicts.isEmpty else {
+            validationMessages[action] = "Default is currently used by \(conflicts.map(\.title).joined(separator: ", "))."
+            return
+        }
+
+        let previousShortcut = settings.shortcut(for: action)
+        settings.resetShortcut(action)
+        validationMessages[action] = nil
+        if action.isGlobal {
+            if let registrationError = coordinator.reloadGlobalShortcuts() {
+                settings.setShortcut(previousShortcut, for: action)
+                _ = coordinator.reloadGlobalShortcuts()
+                validationMessages[action] = registrationError
+            }
+        }
+    }
+
+    private func resetAllShortcuts() {
+        cancelRecording()
+        settings.resetAllShortcuts()
+        validationMessages.removeAll()
+        _ = coordinator.reloadGlobalShortcuts()
+    }
+
+    private func cancelRecording(keepingMessage: Bool = false) {
+        guard recordingAction != nil else { return }
+        if !keepingMessage, let recordingAction {
+            validationMessages[recordingAction] = nil
+        }
+        recordingAction = nil
+        _ = coordinator.endShortcutRecording()
     }
 }

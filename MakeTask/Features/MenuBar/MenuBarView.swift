@@ -38,48 +38,57 @@ struct MenuBarView: View {
         Button {
             coordinator.focusNewTaskInActiveNote()
         } label: {
-            Label("New Task", systemImage: "plus.circle")
+            Label(
+                "New Task — \(settings.shortcutDescription(for: .newTask))",
+                systemImage: "plus.circle"
+            )
         }
-        .keyboardShortcut("n", modifiers: .command)
 
         Button {
             coordinator.sendKeyboardCommand(.search, activatingNote: true)
         } label: {
-            Label("Search Tasks", systemImage: "magnifyingglass")
+            Label(
+                "Search Tasks — \(settings.shortcutDescription(for: .searchTasks))",
+                systemImage: "magnifyingglass"
+            )
         }
-        .keyboardShortcut("f", modifiers: .command)
 
         Button {
             _ = coordinator.createList()
         } label: {
-            Label("New List", systemImage: "plus.rectangle.on.rectangle")
+            Label(
+                "New List — \(settings.shortcutDescription(for: .newList))",
+                systemImage: "plus.rectangle.on.rectangle"
+            )
         }
-        .keyboardShortcut("n", modifiers: [.command, .shift])
 
         Button {
             coordinator.collapseActiveNote()
         } label: {
-            Label("Collapse/Expand Current Note", systemImage: "rectangle.compress.vertical")
+            Label(
+                "Collapse/Expand Current Note — \(settings.shortcutDescription(for: .collapseCurrentNote))",
+                systemImage: "rectangle.compress.vertical"
+            )
         }
-        .keyboardShortcut("m", modifiers: .command)
 
         Button {
             coordinator.hideActiveNote()
         } label: {
-            Label("Hide Current Note", systemImage: "eye.slash")
+            Label(
+                "Hide Current Note — \(settings.shortcutDescription(for: .hideCurrentNote))",
+                systemImage: "eye.slash"
+            )
         }
-        .keyboardShortcut("w", modifiers: .command)
 
         if !lists.isEmpty {
             Button {
                 coordinator.toggleAllNotesVisibility()
             } label: {
                 Label(
-                    lists.allSatisfy { !$0.isHidden } ? "Hide All Notes" : "Show All Notes",
+                    "\(lists.allSatisfy { !$0.isHidden } ? "Hide All Notes" : "Show All Notes") — \(settings.shortcutDescription(for: .toggleAllNotesVisibility))",
                     systemImage: lists.allSatisfy { !$0.isHidden } ? "eye.slash" : "eye"
                 )
             }
-            .keyboardShortcut("h", modifiers: [.command, .shift])
 
             Menu {
                 ForEach(Array(lists.prefix(9).enumerated()), id: \.element.id) { index, list in
@@ -87,7 +96,7 @@ struct MenuBarView: View {
                         coordinator.activateList(at: index)
                     } label: {
                         Label(
-                            "\(list.title)    ⌘\(index + 1)",
+                            "\(list.title)    \(settings.shortcutDescription(for: AppShortcutAction.listSwitchActions[index]))",
                             systemImage: list.isHidden ? "eye.slash" : "rectangle.on.rectangle"
                         )
                     }
@@ -100,21 +109,30 @@ struct MenuBarView: View {
         Button {
             coordinator.undoLastAction()
         } label: {
-            Label("Undo Last Action — ⌘Z", systemImage: "arrow.uturn.backward")
+            Label(
+                "Undo Last Action — \(settings.shortcutDescription(for: .undo))",
+                systemImage: "arrow.uturn.backward"
+            )
         }
         .disabled(!coordinator.canUndo)
 
         Button {
             coordinator.redoLastAction()
         } label: {
-            Label("Redo Last Action — ⇧⌘Z", systemImage: "arrow.uturn.forward")
+            Label(
+                "Redo Last Action — \(settings.shortcutDescription(for: .redo))",
+                systemImage: "arrow.uturn.forward"
+            )
         }
         .disabled(!coordinator.canRedo)
 
         Button(role: .destructive) {
             coordinator.sendKeyboardCommand(.requestListDeletion, activatingNote: true)
         } label: {
-            Label("Delete Current Note… — ⌘⌫", systemImage: "trash")
+            Label(
+                "Delete Current Note… — \(settings.shortcutDescription(for: .deleteCurrentNote))",
+                systemImage: "trash"
+            )
         }
 
         Divider()

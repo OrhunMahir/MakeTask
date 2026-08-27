@@ -54,6 +54,7 @@ final class WindowCoordinator: ObservableObject {
     private var quickAddHotKeyService: GlobalHotKeyService?
     private var visibilityHotKeyService: GlobalHotKeyService?
     private var localKeyMonitor: Any?
+    private var isRecordingShortcut = false
     private var taskDragSnapshot: [TaskPositionSnapshot]?
     private var taskDragCurrentPositions: [UUID: TaskPositionSnapshot]?
     private var taskDragDidMove = false
@@ -180,17 +181,13 @@ final class WindowCoordinator: ObservableObject {
                 self?.presentQuickAdd()
             }
             quickAddHotKeyService = quickAddService
-            reloadGlobalShortcut()
 
             let visibilityService = try GlobalHotKeyService(identifier: 2)
             visibilityService.onPressed = { [weak self] in
                 self?.toggleAllNotesVisibility()
             }
-            try visibilityService.register(
-                keyCode: UInt32(kVK_ANSI_H),
-                modifiers: UInt32(cmdKey | shiftKey)
-            )
             visibilityHotKeyService = visibilityService
+            _ = reloadGlobalShortcuts()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -849,21 +846,50 @@ final class WindowCoordinator: ObservableObject {
         controller?.dismiss()
     }
 
-    func reloadGlobalShortcut() {
-        guard settings.quickAddCarbonModifiers != 0 else {
-            quickAddHotKeyService?.unregister()
-            errorMessage = "The global shortcut needs at least one modifier key."
-            return
+    @discardableResult
+    func reloadGlobalShortcuts() -> String? {
+        quickAddHotKeyService?.unregister()
+        visibilityHotKeyService?.unregister()
+
+        let registrations: [(AppShortcutAction, GlobalHotKeyService?)] = [
+            (.quickAdd, quickAddHotKeyService),
+            (.toggleAllNotesVisibility, visibilityHotKeyService)
+        ]
+
+        var firstError: String?
+        for (action, service) in registrations {
+            let shortcut = settings.shortcut(for: action)
+            guard !shortcut.modifiers.isEmpty else {
+                let message = "\(action.title) needs at least one modifier key."
+                firstError = firstError ?? message
+                continue
+            }
+
+            do {
+                try service?.register(
+                    keyCode: UInt32(shortcut.keyCode),
+                    modifiers: shortcut.modifiers.carbonValue
+                )
+            } catch {
+                let message = "\(action.title): \(error.localizedDescription)"
+                firstError = firstError ?? message
+            }
         }
-        do {
-            try quickAddHotKeyService?.register(
-                keyCode: settings.quickAddKeyCode,
-                modifiers: settings.quickAddCarbonModifiers
-            )
-            errorMessage = nil
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+
+        errorMessage = firstError
+        return firstError
+    }
+
+    func beginShortcutRecording() {
+        isRecordingShortcut = true
+        quickAddHotKeyService?.unregister()
+        visibilityHotKeyService?.unregister()
+    }
+
+    @discardableResult
+    func endShortcutRecording() -> String? {
+        isRecordingShortcut = false
+        return reloadGlobalShortcuts()
     }
 
     func saveContext() {
@@ -933,15 +959,17 @@ final class WindowCoordinator: ObservableObject {
         guard localKeyMonitor == nil else { return }
         localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
+            guard !self.isRecordingShortcut else { return event }
 
-            var modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            modifiers.subtract([.capsLock, .function, .numericPad])
-            let key = event.charactersIgnoringModifiers?.lowercased()
+            guard let action = self.settings.action(matching: event), !action.isGlobal else {
+                return event
+            }
             let quickAddIsKey = self.quickAddWindow?.window?.isKeyWindow == true
             let notePanelIsKey = !quickAddIsKey && NSApp.keyWindow is FloatingNotePanel
             let isEditingText = NSApp.keyWindow?.firstResponder is NSTextView
 
-            if key == "w", modifiers == [.command] {
+            switch action {
+            case .hideCurrentNote:
                 if quickAddIsKey {
                     self.dismissQuickAdd()
                     return nil
@@ -950,116 +978,68 @@ final class WindowCoordinator: ObservableObject {
                     self.hideActiveNote()
                     return nil
                 }
-            }
-
-            if key == "m",
-               modifiers == [.command],
-               notePanelIsKey {
+            case .collapseCurrentNote where notePanelIsKey:
                 self.collapseActiveNote()
                 return nil
-            }
-
-            if key == "f", modifiers == [.command], notePanelIsKey {
+            case .searchTasks where notePanelIsKey:
                 self.sendKeyboardCommand(.search)
                 return nil
-            }
-
-            if key == "z", modifiers == [.command, .shift], !quickAddIsKey, !isEditingText {
+            case .redo where !quickAddIsKey && !isEditingText:
                 return self.redoLastAction() ? nil : event
-            }
-
-            if key == "z", modifiers == [.command], !quickAddIsKey, !isEditingText {
+            case .undo where !quickAddIsKey && !isEditingText:
                 return self.undoLastAction() ? nil : event
-            }
-
-            if key == "l", modifiers == [.command], notePanelIsKey, !isEditingText {
+            case .renameCurrentList where notePanelIsKey && !isEditingText:
                 self.beginRenamingActiveList()
                 return nil
-            }
-
-            if key == "c", modifiers == [.command, .shift], notePanelIsKey, !isEditingText {
+            case .toggleCompletedTasks where notePanelIsKey && !isEditingText:
                 self.sendKeyboardCommand(.toggleCompletedSection)
                 return nil
-            }
-
-            if event.keyCode == UInt16(kVK_LeftArrow), modifiers == [.command, .control],
-               notePanelIsKey, !isEditingText {
+            case .moveTaskToPreviousList where notePanelIsKey && !isEditingText:
                 self.sendKeyboardCommand(.moveSelectedTaskToPreviousList)
                 return nil
-            }
-
-            if event.keyCode == UInt16(kVK_RightArrow), modifiers == [.command, .control],
-               notePanelIsKey, !isEditingText {
+            case .moveTaskToNextList where notePanelIsKey && !isEditingText:
                 self.sendKeyboardCommand(.moveSelectedTaskToNextList)
                 return nil
-            }
-
-            if (event.keyCode == UInt16(kVK_Delete) || event.keyCode == UInt16(kVK_ForwardDelete)),
-               modifiers == [.command, .option], notePanelIsKey, !isEditingText, !event.isARepeat {
+            case .clearCompletedTasks where notePanelIsKey && !isEditingText && !event.isARepeat:
                 self.sendKeyboardCommand(.requestClearCompletedTasks)
                 return nil
-            }
-
-            if (event.keyCode == UInt16(kVK_Delete) || event.keyCode == UInt16(kVK_ForwardDelete)),
-               modifiers == [.command], notePanelIsKey, !event.isARepeat {
+            case .deleteCurrentNote where notePanelIsKey && !event.isARepeat:
                 self.sendKeyboardCommand(.requestListDeletion)
                 return nil
-            }
-
-            if (event.keyCode == UInt16(kVK_Delete) || event.keyCode == UInt16(kVK_ForwardDelete)),
-               modifiers.isEmpty, notePanelIsKey, !isEditingText, !event.isARepeat {
+            case .deleteSelectedTask where notePanelIsKey && !isEditingText && !event.isARepeat:
                 self.sendKeyboardCommand(.deleteSelectedTask)
                 return nil
-            }
-
-            if event.keyCode == UInt16(kVK_UpArrow), modifiers.isEmpty, notePanelIsKey, !isEditingText {
+            case .selectPreviousTask where notePanelIsKey && !isEditingText:
                 self.sendKeyboardCommand(.selectPreviousTask)
                 return nil
-            }
-
-            if event.keyCode == UInt16(kVK_DownArrow), modifiers.isEmpty, notePanelIsKey, !isEditingText {
+            case .selectNextTask where notePanelIsKey && !isEditingText:
                 self.sendKeyboardCommand(.selectNextTask)
                 return nil
-            }
-
-            if event.keyCode == UInt16(kVK_Space), modifiers.isEmpty,
-               notePanelIsKey, !isEditingText, !event.isARepeat {
+            case .completeSelectedTask where notePanelIsKey && !isEditingText && !event.isARepeat:
                 self.sendKeyboardCommand(.toggleSelectedTask)
                 return nil
-            }
-
-            if (event.keyCode == UInt16(kVK_Return) || event.keyCode == UInt16(kVK_ANSI_KeypadEnter)),
-               modifiers.isEmpty, notePanelIsKey, !isEditingText, !event.isARepeat {
+            case .editSelectedTask where notePanelIsKey && !isEditingText && !event.isARepeat:
                 self.sendKeyboardCommand(.editSelectedTask)
                 return nil
-            }
-
-            if event.keyCode == UInt16(kVK_UpArrow), modifiers == [.option],
-               notePanelIsKey, !isEditingText {
+            case .moveSelectedTaskUp where notePanelIsKey && !isEditingText:
                 self.sendKeyboardCommand(.moveSelectedTaskUp)
                 return nil
-            }
-
-            if event.keyCode == UInt16(kVK_DownArrow), modifiers == [.option],
-               notePanelIsKey, !isEditingText {
+            case .moveSelectedTaskDown where notePanelIsKey && !isEditingText:
                 self.sendKeyboardCommand(.moveSelectedTaskDown)
                 return nil
-            }
-
-            if modifiers == [.command], !quickAddIsKey, !isEditingText,
-               let key, let listNumber = Int(key), (1...9).contains(listNumber) {
-                self.activateList(at: listNumber - 1)
-                return nil
-            }
-
-            if key == "n", modifiers == [.command, .shift], !isEditingText {
+            case .newList where !isEditingText && !event.isARepeat:
                 _ = self.createList()
                 return nil
-            }
-
-            if key == "n", modifiers == [.command], !isEditingText {
+            case .newTask where !isEditingText && !event.isARepeat:
                 self.focusNewTaskInActiveNote()
                 return nil
+            case let listAction where !quickAddIsKey && !isEditingText:
+                if let listIndex = listAction.listIndex {
+                    self.activateList(at: listIndex)
+                    return nil
+                }
+            default:
+                break
             }
 
             return event

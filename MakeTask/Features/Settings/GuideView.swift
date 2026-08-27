@@ -39,115 +39,115 @@ struct GuideView: View {
                 icon: "plus.circle",
                 title: "New Task",
                 detail: "Focus task entry in the active note",
-                keys: "⌘N"
+                keys: settings.shortcutDescription(for: .newTask)
             ),
             ShortcutItem(
                 icon: "plus.rectangle.on.rectangle",
                 title: "New List",
                 detail: "Create and immediately name a note",
-                keys: "⇧⌘N"
+                keys: settings.shortcutDescription(for: .newList)
             ),
             ShortcutItem(
                 icon: "eye.slash",
                 title: "Hide Note",
                 detail: "Remove the active note from the desktop",
-                keys: "⌘W"
+                keys: settings.shortcutDescription(for: .hideCurrentNote)
             ),
             ShortcutItem(
                 icon: "rectangle.compress.vertical",
                 title: "Collapse Note",
                 detail: "Keep only the active note's header",
-                keys: "⌘M"
+                keys: settings.shortcutDescription(for: .collapseCurrentNote)
             ),
             ShortcutItem(
                 icon: "eye",
                 title: "Show/Hide All",
                 detail: "Global recovery when every note is hidden",
-                keys: "⇧⌘H"
+                keys: settings.shortcutDescription(for: .toggleAllNotesVisibility)
             ),
             ShortcutItem(
                 icon: "magnifyingglass",
                 title: "Search Tasks",
                 detail: "Filter tasks in the active note",
-                keys: "⌘F"
+                keys: settings.shortcutDescription(for: .searchTasks)
             ),
             ShortcutItem(
                 icon: "arrow.uturn.backward",
                 title: "Undo Action",
                 detail: "Undo the last task or list change",
-                keys: "⌘Z"
+                keys: settings.shortcutDescription(for: .undo)
             ),
             ShortcutItem(
                 icon: "arrow.uturn.forward",
                 title: "Redo Action",
                 detail: "Reapply the last undone MakeTask change",
-                keys: "⇧⌘Z"
+                keys: settings.shortcutDescription(for: .redo)
             ),
             ShortcutItem(
                 icon: "trash",
                 title: "Delete Note",
                 detail: "Ask before deleting the active note",
-                keys: "⌘⌫"
+                keys: settings.shortcutDescription(for: .deleteCurrentNote)
             ),
             ShortcutItem(
                 icon: "arrow.up.arrow.down",
                 title: "Select Task",
                 detail: "Move the keyboard selection",
-                keys: "↑  ↓"
+                keys: "\(settings.shortcutDescription(for: .selectPreviousTask))  \(settings.shortcutDescription(for: .selectNextTask))"
             ),
             ShortcutItem(
                 icon: "checkmark.circle",
                 title: "Complete Task",
                 detail: "Toggle the selected task",
-                keys: "Space"
+                keys: settings.shortcutDescription(for: .completeSelectedTask)
             ),
             ShortcutItem(
                 icon: "pencil",
                 title: "Edit Task",
                 detail: "Edit the selected task inline",
-                keys: "Return"
+                keys: settings.shortcutDescription(for: .editSelectedTask)
             ),
             ShortcutItem(
                 icon: "trash",
                 title: "Delete Selected Task",
                 detail: "Delete the current keyboard selection",
-                keys: "⌫"
+                keys: settings.shortcutDescription(for: .deleteSelectedTask)
             ),
             ShortcutItem(
                 icon: "arrow.up.arrow.down.circle",
                 title: "Reorder Task",
                 detail: "Move the selected task up or down",
-                keys: "⌥↑  ⌥↓"
+                keys: "\(settings.shortcutDescription(for: .moveSelectedTaskUp))  \(settings.shortcutDescription(for: .moveSelectedTaskDown))"
             ),
             ShortcutItem(
                 icon: "arrow.left.arrow.right",
                 title: "Move Between Lists",
                 detail: "Move the selected task to the adjacent list",
-                keys: "⌃⌘←  ⌃⌘→"
+                keys: "\(settings.shortcutDescription(for: .moveTaskToPreviousList))  \(settings.shortcutDescription(for: .moveTaskToNextList))"
             ),
             ShortcutItem(
                 icon: "text.cursor",
                 title: "Rename Current List",
                 detail: "Select the active list title for editing",
-                keys: "⌘L"
+                keys: settings.shortcutDescription(for: .renameCurrentList)
             ),
             ShortcutItem(
                 icon: "checkmark.circle.badge.questionmark",
                 title: "Toggle Completed Tasks",
                 detail: "Collapse or expand the Completed section",
-                keys: "⇧⌘C"
+                keys: settings.shortcutDescription(for: .toggleCompletedTasks)
             ),
             ShortcutItem(
                 icon: "trash.slash",
                 title: "Clear Completed Tasks",
                 detail: "Confirm before removing completed tasks",
-                keys: "⌥⌘⌫"
+                keys: settings.shortcutDescription(for: .clearCompletedTasks)
             ),
             ShortcutItem(
                 icon: "square.stack",
                 title: "Switch List",
                 detail: "Activate lists one through nine",
-                keys: "⌘1…9"
+                keys: "\(settings.shortcutDescription(for: .switchToList1))…\(settings.shortcutDescription(for: .switchToList9))"
             ),
             ShortcutItem(
                 icon: "gearshape",
@@ -315,13 +315,13 @@ struct GuideView: View {
                 behaviorCard(
                     icon: "rectangle.compress.vertical",
                     title: "Collapse",
-                    detail: "Only the header remains on the desktop. Double-click the empty header or press ⌘M to expand it again.",
+                    detail: "Only the header remains on the desktop. Double-click the empty header or press \(settings.shortcutDescription(for: .collapseCurrentNote)) to expand it again.",
                     tint: .orange
                 )
                 behaviorCard(
                     icon: "eye.slash",
                     title: "Hide",
-                    detail: "The note disappears completely. Restore it from the menu bar, Quick Add's Show Note button, or ⇧⌘H.",
+                    detail: "The note disappears completely. Restore it from the menu bar, Quick Add's Show Note button, or \(settings.shortcutDescription(for: .toggleAllNotesVisibility)).",
                     tint: .blue
                 )
                 behaviorCard(
