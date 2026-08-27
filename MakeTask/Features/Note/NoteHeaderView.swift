@@ -61,10 +61,10 @@ struct NoteHeaderView: View {
                         Button {
                             coordinator.setColor(color, for: list)
                         } label: {
-                            HStack {
-                                Image(systemName: list.noteColor == color ? "checkmark.circle.fill" : "circle.fill")
-                                    .foregroundStyle(color.tint)
+                            Label {
                                 Text(color.title)
+                            } icon: {
+                                Image(nsImage: color.menuSwatchImage(isSelected: list.noteColor == color))
                             }
                         }
                     }

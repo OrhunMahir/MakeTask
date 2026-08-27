@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum NoteColor: String, CaseIterable, Codable, Identifiable {
@@ -42,5 +43,36 @@ enum NoteColor: String, CaseIterable, Codable, Identifiable {
         case .green: Color(red: 0.33, green: 0.78, blue: 0.48)
         case .graphite: Color(red: 0.55, green: 0.57, blue: 0.62)
         }
+    }
+
+    func menuSwatchImage(isSelected: Bool) -> NSImage {
+        let size = NSSize(width: 14, height: 14)
+        let image = NSImage(size: size, flipped: false) { rect in
+            let circleRect = rect.insetBy(dx: 1, dy: 1)
+            let circle = NSBezierPath(ovalIn: circleRect)
+
+            NSColor(self.tint).setFill()
+            circle.fill()
+
+            NSColor.labelColor.withAlphaComponent(0.22).setStroke()
+            circle.lineWidth = 0.7
+            circle.stroke()
+
+            if isSelected {
+                let checkmark = NSBezierPath()
+                checkmark.move(to: NSPoint(x: 4.0, y: 7.0))
+                checkmark.line(to: NSPoint(x: 6.1, y: 4.9))
+                checkmark.line(to: NSPoint(x: 10.2, y: 9.2))
+                checkmark.lineCapStyle = .round
+                checkmark.lineJoinStyle = .round
+                checkmark.lineWidth = 1.6
+                NSColor.white.setStroke()
+                checkmark.stroke()
+            }
+
+            return true
+        }
+        image.isTemplate = false
+        return image
     }
 }
