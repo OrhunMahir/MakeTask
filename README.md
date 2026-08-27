@@ -23,6 +23,7 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - Drag a note only from the empty header area, so task dragging never moves the window
 - Double-click the empty note header area to collapse it to its title bar
 - Collapse and hide are separate, persisted states
+- Choose from ten note colors: Yellow, Orange, Red, Pink, Purple, Indigo, Blue, Teal, Green, and Graphite
 - Three per-note modes: Stay on Desktop, Always on Top, and Normal Window
 - Normal Window is the default for newly created notes
 - Menu bar controls; no main window is required
@@ -207,7 +208,7 @@ MakeTask makes no network requests and its app target has outgoing network acces
 
 - Broader shortcut recording
 - Optional local export/import
-- Automated UI coverage and accessibility refinements
+- Automated UI coverage and keyboard interaction refinements
 - Optional cloud sync, only as an explicit opt-in feature
 
 ## Contributing

@@ -61,9 +61,9 @@ struct NoteHeaderView: View {
                         Button {
                             coordinator.setColor(color, for: list)
                         } label: {
-                            if list.noteColor == color {
-                                Label(color.title, systemImage: "checkmark")
-                            } else {
+                            HStack {
+                                Image(systemName: list.noteColor == color ? "checkmark.circle.fill" : "circle.fill")
+                                    .foregroundStyle(color.tint)
                                 Text(color.title)
                             }
                         }
