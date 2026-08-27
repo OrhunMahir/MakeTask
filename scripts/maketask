@@ -1,0 +1,170 @@
+#!/bin/sh
+
+set -eu
+
+program_name="maketask"
+config_root="${XDG_CONFIG_HOME:-$HOME/.config}/maketask"
+repo_config="$config_root/repo-path"
+cache_root="${XDG_CACHE_HOME:-$HOME/Library/Caches}/MakeTask"
+derived_data="$cache_root/DerivedData"
+
+print_usage() {
+    cat <<'EOF'
+Usage:
+  maketask                    Open the installed MakeTask app
+  maketask --dev              Build and open the Debug app
+  maketask --dev --no-open    Build the Debug app without opening it
+  maketask --install-app      Build and install a local Release app
+  maketask --repo             Print the configured repository path
+  maketask --help             Show this help
+
+Environment overrides:
+  MAKETASK_REPO               MakeTask repository path
+  MAKETASK_APP                Installed MakeTask.app path
+  MAKETASK_APP_DESTINATION    Destination used by --install-app
+EOF
+}
+
+fail() {
+    printf '%s: %s\n' "$program_name" "$1" >&2
+    exit 1
+}
+
+configured_repo() {
+    if [ -n "${MAKETASK_REPO:-}" ]; then
+        printf '%s\n' "$MAKETASK_REPO"
+        return
+    fi
+
+    if [ -f "$repo_config" ]; then
+        sed -n '1p' "$repo_config"
+        return
+    fi
+
+    fail "repository is not configured. Run scripts/install-maketask.sh from the MakeTask repository."
+}
+
+validated_repo() {
+    repo_path=$(configured_repo)
+    [ -d "$repo_path/MakeTask.xcodeproj" ] || fail "MakeTask.xcodeproj was not found at '$repo_path'. Re-run the installer or set MAKETASK_REPO."
+    printf '%s\n' "$repo_path"
+}
+
+require_build_tools() {
+    command -v xcodebuild >/dev/null 2>&1 || fail "xcodebuild is unavailable. Install Xcode and select it with xcode-select."
+}
+
+build_app() {
+    configuration=$1
+    repo_path=$(validated_repo)
+    require_build_tools
+    mkdir -p "$derived_data"
+
+    printf 'Building MakeTask (%s)…\n' "$configuration" >&2
+    if ! xcodebuild \
+        -project "$repo_path/MakeTask.xcodeproj" \
+        -scheme MakeTask \
+        -configuration "$configuration" \
+        -destination 'platform=macOS' \
+        -derivedDataPath "$derived_data" \
+        -quiet \
+        build >&2; then
+        fail "$configuration build failed. Review the Xcode errors above."
+    fi
+
+    built_app="$derived_data/Build/Products/$configuration/MakeTask.app"
+    [ -d "$built_app" ] || fail "build succeeded but '$built_app' was not created."
+    printf '%s\n' "$built_app"
+}
+
+open_app() {
+    app_path=$1
+    [ -d "$app_path" ] || fail "MakeTask.app was not found at '$app_path'."
+    /usr/bin/open "$app_path"
+}
+
+open_installed_app() {
+    if [ -n "${MAKETASK_APP:-}" ]; then
+        open_app "$MAKETASK_APP"
+        return
+    fi
+
+    for app_path in "/Applications/MakeTask.app" "$HOME/Applications/MakeTask.app"; do
+        if [ -d "$app_path" ]; then
+            open_app "$app_path"
+            return
+        fi
+    done
+
+    fail "no installed app was found. Run 'maketask --install-app' once, or use 'maketask --dev'."
+}
+
+install_release_app() {
+    built_app=$(build_app Release)
+    destination="${MAKETASK_APP_DESTINATION:-$HOME/Applications/MakeTask.app}"
+
+    case "$destination" in
+        */MakeTask.app) ;;
+        *) fail "the install destination must end with MakeTask.app." ;;
+    esac
+
+    destination_parent=$(dirname "$destination")
+    staging="$destination.installing.$$"
+    backup="$destination.previous.$$"
+    mkdir -p "$destination_parent"
+    rm -rf "$staging" "$backup"
+
+    if ! /usr/bin/ditto "$built_app" "$staging"; then
+        rm -rf "$staging"
+        fail "could not copy the Release app to '$destination_parent'."
+    fi
+
+    if [ -e "$destination" ]; then
+        mv "$destination" "$backup"
+    fi
+
+    if mv "$staging" "$destination"; then
+        rm -rf "$backup"
+    else
+        [ ! -e "$backup" ] || mv "$backup" "$destination"
+        rm -rf "$staging"
+        fail "could not finish installing '$destination'."
+    fi
+
+    printf 'Installed MakeTask at %s\n' "$destination"
+}
+
+case "${1:-}" in
+    "")
+        open_installed_app
+        ;;
+    --dev)
+        case "${2:-}" in
+            "")
+                debug_app=$(build_app Debug)
+                open_app "$debug_app"
+                ;;
+            --no-open)
+                build_app Debug >/dev/null
+                printf 'Debug build completed at %s\n' "$derived_data/Build/Products/Debug/MakeTask.app"
+                ;;
+            *)
+                fail "unknown --dev option '$2'. Run 'maketask --help'."
+                ;;
+        esac
+        ;;
+    --install-app)
+        [ "$#" -eq 1 ] || fail "--install-app does not accept additional arguments."
+        install_release_app
+        ;;
+    --repo)
+        [ "$#" -eq 1 ] || fail "--repo does not accept additional arguments."
+        validated_repo
+        ;;
+    --help|-h)
+        print_usage
+        ;;
+    *)
+        fail "unknown option '$1'. Run 'maketask --help'."
+        ;;
+esac

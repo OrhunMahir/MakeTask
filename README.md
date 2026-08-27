@@ -44,6 +44,41 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 
 ## Build and run
 
+### One-command launcher
+
+Install the `maketask` command and a local Release app once:
+
+```sh
+./scripts/install-maketask.sh
+```
+
+The installer copies the launcher to `~/.local/bin`, records the current repository path, builds MakeTask, and installs it at `~/Applications/MakeTask.app`. It does not require `sudo` or a shell alias. After that, MakeTask can be opened from any terminal directory:
+
+```sh
+maketask
+```
+
+Developer commands:
+
+```sh
+maketask --dev              # Build and open the latest Debug app
+maketask --dev --no-open    # Build without opening the app
+maketask --install-app      # Rebuild/update the local Release app
+maketask --help
+```
+
+If `/Applications/MakeTask.app` exists, the launcher prefers it over the per-user installation. `MAKETASK_REPO`, `MAKETASK_APP`, and `MAKETASK_APP_DESTINATION` can override the detected paths.
+
+Remove only the command and configuration:
+
+```sh
+./scripts/uninstall-maketask.sh
+```
+
+Add `--with-app` to also remove `~/Applications/MakeTask.app`.
+
+### Xcode
+
 1. Open `MakeTask.xcodeproj` in Xcode.
 2. Select the **MakeTask** scheme and **My Mac** destination.
 3. Set a development team or change the bundle identifier if signing requires it.
@@ -128,6 +163,7 @@ MakeTask/
 │   ├── QuickAdd/
 │   └── Settings/
 └── Shared/              Reusable SwiftUI/AppKit bridges
+scripts/                 Terminal launcher, installer, and uninstaller
 ```
 
 More detail is available in [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -164,7 +200,6 @@ MakeTask makes no network requests and its app target has outgoing network acces
 
 ## Next phases
 
-- One-command `maketask` terminal launcher; see [ROADMAP.md](ROADMAP.md)
 - Priorities and subtasks
 - Configurable completed-task delay
 - Broader shortcut recording

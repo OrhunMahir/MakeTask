@@ -1,8 +1,8 @@
 # MakeTask Roadmap
 
-This file records accepted product and developer-experience work that is intentionally scheduled for a later iteration.
+This file records accepted product and developer-experience work together with its implementation status.
 
-## Planned
+## Completed
 
 ### One-command terminal launcher
 
@@ -24,4 +24,6 @@ Planned acceptance criteria:
 - Include an uninstall command or documented removal step.
 - Do not depend on a shell-specific alias.
 
-**Status:** Accepted for a future development iteration; not implemented yet.
+**Status:** Completed on 2026-08-27.
+
+The implementation lives in `scripts/maketask`, with one-time installation and removal handled by `scripts/install-maketask.sh` and `scripts/uninstall-maketask.sh`. It supports normal installed-app launching, `--dev`, `--install-app`, path overrides, missing-path diagnostics, and installation without a shell alias or `sudo`.
