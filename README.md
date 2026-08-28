@@ -1,5 +1,7 @@
 # MakeTask
 
+[![CI](https://github.com/OrhunMahir/MakeTask/actions/workflows/ci.yml/badge.svg)](https://github.com/OrhunMahir/MakeTask/actions/workflows/ci.yml)
+
 **Apple Stickies for todos.** MakeTask is a lightweight, local-first macOS menu bar app that keeps independent todo notes on the desktop.
 
 MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused AppKit layer for desktop-level windows, window restoration, and Stickies-style roll-up behavior. It has no third-party dependencies.
@@ -228,9 +230,10 @@ Use `maketask --unit-test` for the fast model/service suite or `maketask --ui-te
 
 The test hosts automatically use an in-memory SwiftData container, isolated preferences, and skip system-wide shortcut registration. Fourteen unit tests cover JSON round trips, corrupt and forward-version backup rejection, safe additive import, fresh identifiers, duplicate-name handling, window bounds, default-list recovery, ordering, cascade deletion, and shortcut resolution. Five UI tests cover task creation/completion, collapse/expand, hide/reveal recovery, Quick Add, keyboard selection/editing, undo/redo, and inline list naming.
 
+GitHub Actions also builds the Release app and runs the unit-test suite on every push and pull request. If a check fails, its Xcode result bundle is retained for seven days as a workflow artifact. Interactive UI tests remain local because they require a real macOS window session.
+
 ## Next phases
 
-- GitHub Actions for automated build and unit-test checks on every push
 - Additional drag-and-drop regression coverage
 - Optional cloud sync, only as an explicit opt-in feature
 
