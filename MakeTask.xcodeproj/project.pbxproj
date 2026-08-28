@@ -14,11 +14,19 @@
 			remoteGlobalIDString = A10000000000000000000006;
 			remoteInfo = MakeTask;
 		};
+		C10000000000000000000009 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000006;
+			remoteInfo = MakeTask;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000001 /* MakeTask.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MakeTask.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000000000000000000001 /* MakeTaskTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MakeTaskTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000000000000000000001 /* MakeTaskUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MakeTaskUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -30,6 +38,11 @@
 		B10000000000000000000002 /* MakeTaskTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MakeTaskTests;
+			sourceTree = "<group>";
+		};
+		C10000000000000000000002 /* MakeTaskUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MakeTaskUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -49,6 +62,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C10000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -57,6 +77,7 @@
 			children = (
 				A10000000000000000000002 /* MakeTask */,
 				B10000000000000000000002 /* MakeTaskTests */,
+				C10000000000000000000002 /* MakeTaskUITests */,
 				A10000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -66,6 +87,7 @@
 			children = (
 				A10000000000000000000001 /* MakeTask.app */,
 				B10000000000000000000001 /* MakeTaskTests.xctest */,
+				C10000000000000000000001 /* MakeTaskUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -118,6 +140,29 @@
 			productReference = B10000000000000000000001 /* MakeTaskTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		C10000000000000000000006 /* MakeTaskUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C10000000000000000000007 /* Build configuration list for PBXNativeTarget "MakeTaskUITests" */;
+			buildPhases = (
+				C10000000000000000000004 /* Sources */,
+				C10000000000000000000003 /* Frameworks */,
+				C10000000000000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C10000000000000000000008 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				C10000000000000000000002 /* MakeTaskUITests */,
+			);
+			name = MakeTaskUITests;
+			packageProductDependencies = (
+			);
+			productName = MakeTaskUITests;
+			productReference = C10000000000000000000001 /* MakeTaskUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -132,6 +177,10 @@
 						CreatedOnToolsVersion = 26.1;
 					};
 					B10000000000000000000006 = {
+						CreatedOnToolsVersion = 26.1;
+						TestTargetID = A10000000000000000000006;
+					};
+					C10000000000000000000006 = {
 						CreatedOnToolsVersion = 26.1;
 						TestTargetID = A10000000000000000000006;
 					};
@@ -153,6 +202,7 @@
 			targets = (
 				A10000000000000000000006 /* MakeTask */,
 				B10000000000000000000006 /* MakeTaskTests */,
+				C10000000000000000000006 /* MakeTaskUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -166,6 +216,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B10000000000000000000005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10000000000000000000005 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -189,6 +246,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C10000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -196,6 +260,11 @@
 			isa = PBXTargetDependency;
 			target = A10000000000000000000006 /* MakeTask */;
 			targetProxy = B10000000000000000000009 /* PBXContainerItemProxy */;
+		};
+		C10000000000000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000006 /* MakeTask */;
+			targetProxy = C10000000000000000000009 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -373,6 +442,36 @@
 			};
 			name = Release;
 		};
+		C1000000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.orhun.MakeTaskUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = MakeTask;
+			};
+			name = Debug;
+		};
+		C1000000000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.orhun.MakeTaskUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = MakeTask;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -399,6 +498,15 @@
 			buildConfigurations = (
 				B1000000000000000000000A /* Debug */,
 				B1000000000000000000000B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C10000000000000000000007 /* Build configuration list for PBXNativeTarget "MakeTaskUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C1000000000000000000000A /* Debug */,
+				C1000000000000000000000B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

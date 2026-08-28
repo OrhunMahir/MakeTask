@@ -168,11 +168,18 @@ struct TaskRowView: View {
             }
             .buttonStyle(.plain)
             .help(task.isCompleted ? "Mark incomplete" : "Mark complete")
+            .accessibilityIdentifier("task.checkbox.\(task.id.uuidString)")
+            .accessibilityLabel(
+                task.isCompleted
+                    ? "Mark \(task.title) incomplete"
+                    : "Complete \(task.title)"
+            )
 
             if isEditing {
                 TextField("Task title", text: $titleDraft)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13.5))
+                    .accessibilityIdentifier("task.title-field")
                     .focused($isTitleFocused)
                     .onSubmit(commitEditing)
                     .onExitCommand(perform: cancelEditing)
@@ -182,6 +189,7 @@ struct TaskRowView: View {
                         .font(.system(size: 13.5))
                         .strikethrough(task.isCompleted, color: .secondary)
                         .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                        .accessibilityIdentifier("task.title.\(task.id.uuidString)")
 
                     if showsMetadata {
                         HStack(spacing: 8) {

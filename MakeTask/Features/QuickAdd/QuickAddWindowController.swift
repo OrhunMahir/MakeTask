@@ -13,9 +13,12 @@ final class QuickAddWindowController: NSWindowController, NSWindowDelegate {
     ) {
         self.coordinator = coordinator
 
+        let styleMask: NSWindow.StyleMask = AppRuntime.isRunningUITests
+            ? [.titled, .fullSizeContentView]
+            : [.borderless]
         let panel = FloatingNotePanel(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 190),
-            styleMask: [.borderless],
+            styleMask: styleMask,
             backing: .buffered,
             defer: false
         )
@@ -30,6 +33,12 @@ final class QuickAddWindowController: NSWindowController, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.animationBehavior = .utilityWindow
+        if AppRuntime.isRunningUITests {
+            panel.title = "Quick Add"
+            panel.titleVisibility = .hidden
+            panel.titlebarAppearsTransparent = true
+            panel.setAccessibilityIdentifier("quick-add.window")
+        }
 
         let rootView = QuickAddView()
             .modelContainer(modelContainer)

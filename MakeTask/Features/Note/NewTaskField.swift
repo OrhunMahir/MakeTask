@@ -16,6 +16,8 @@ struct NewTaskField: View {
             TextField("New task…", text: $title)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13.5))
+                .accessibilityIdentifier("note.new-task-field")
+                .accessibilityLabel("New task")
                 .focused(isFocused)
                 .onSubmit(addTask)
                 .onExitCommand {

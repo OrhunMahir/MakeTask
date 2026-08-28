@@ -69,7 +69,9 @@ Developer commands:
 ```sh
 maketask --dev              # Build and open the latest Debug app
 maketask --dev --no-open    # Build without opening the app
-maketask --test             # Run all unit and persistence tests
+maketask --test             # Run all unit and UI tests
+maketask --unit-test        # Run only the fast unit tests
+maketask --ui-test          # Run only the interactive UI tests
 maketask --install-app      # Rebuild/update the local Release app
 maketask --help
 ```
@@ -173,8 +175,9 @@ MakeTask/
 │   ├── QuickAdd/
 │   └── Settings/
 └── Shared/              Reusable SwiftUI/AppKit bridges
-MakeTaskTests/            Isolated XCTest backup and persistence coverage
-scripts/                 Terminal launcher, installer, and uninstaller
+MakeTaskTests/            Isolated XCTest model and service coverage
+MakeTaskUITests/          Critical macOS window and keyboard flows
+scripts/                  Terminal launcher, installer, and uninstaller
 ```
 
 More detail is available in [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -215,17 +218,20 @@ Use **Settings → Backup** to export a readable, versioned JSON file. Import va
 
 ## Tests
 
-Run the complete suite without opening MakeTask or touching real user data:
+Run the complete isolated suite without touching real MakeTask data:
 
 ```sh
 maketask --test
 ```
 
-The test host automatically uses an in-memory SwiftData container and skips window restoration and global shortcut registration. Coverage currently includes JSON round trips, corrupt and forward-version backup rejection, safe additive import, fresh identifiers, duplicate-name handling, window bounds, default-list recovery, ordering, and cascade deletion.
+Use `maketask --unit-test` for the fast model/service suite or `maketask --ui-test` for only the interactive macOS coverage. The UI suite briefly opens a dedicated test window; it never reads or writes the real MakeTask store.
+
+The test hosts automatically use an in-memory SwiftData container, isolated preferences, and skip system-wide shortcut registration. Fourteen unit tests cover JSON round trips, corrupt and forward-version backup rejection, safe additive import, fresh identifiers, duplicate-name handling, window bounds, default-list recovery, ordering, cascade deletion, and shortcut resolution. Five UI tests cover task creation/completion, collapse/expand, hide/reveal recovery, Quick Add, keyboard selection/editing, undo/redo, and inline list naming.
 
 ## Next phases
 
-- Automated UI coverage and keyboard interaction refinements
+- GitHub Actions for automated build and unit-test checks on every push
+- Additional drag-and-drop regression coverage
 - Optional cloud sync, only as an explicit opt-in feature
 
 ## Contributing

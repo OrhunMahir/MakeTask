@@ -296,6 +296,10 @@ struct NoteView: View {
         .padding(.bottom, 4)
         .zIndex(1)
         .help(list.isCompletedSectionCollapsed ? "Show completed tasks" : "Hide completed tasks")
+        .accessibilityIdentifier("note.completed-toggle")
+        .accessibilityLabel(
+            list.isCompletedSectionCollapsed ? "Show completed tasks" : "Hide completed tasks"
+        )
     }
 
     private func matchesSearch(_ task: TodoTask) -> Bool {

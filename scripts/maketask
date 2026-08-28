@@ -15,6 +15,8 @@ Usage:
   maketask --dev              Build and open the Debug app
   maketask --dev --no-open    Build the Debug app without opening it
   maketask --test             Run the complete MakeTask test suite
+  maketask --unit-test        Run only the fast unit tests
+  maketask --ui-test          Run only the macOS UI tests
   maketask --install-app      Build and install a local Release app
   maketask --repo             Print the configured repository path
   maketask --help             Show this help
@@ -135,12 +137,12 @@ install_release_app() {
     printf 'Installed MakeTask at %s\n' "$destination"
 }
 
-run_tests() {
+run_unit_tests() {
     repo_path=$(validated_repo)
     require_build_tools
     mkdir -p "$derived_data"
 
-    printf 'Running MakeTask tests…\n' >&2
+    printf 'Running MakeTask unit tests…\n' >&2
     if ! xcodebuild \
         -project "$repo_path/MakeTask.xcodeproj" \
         -scheme MakeTask \
@@ -148,12 +150,41 @@ run_tests() {
         -destination 'platform=macOS' \
         -derivedDataPath "$derived_data" \
         CODE_SIGNING_ALLOWED=NO \
+        -only-testing:MakeTaskTests \
         -quiet \
         test >&2; then
-        fail "tests failed. Review the Xcode errors above."
+        fail "unit tests failed. Review the Xcode errors above."
     fi
 
-    printf 'All MakeTask tests passed.\n'
+    printf 'All MakeTask unit tests passed.\n'
+}
+
+run_ui_tests() {
+    repo_path=$(validated_repo)
+    require_build_tools
+    mkdir -p "$derived_data"
+
+    printf 'Running MakeTask UI tests…\n' >&2
+    if ! xcodebuild \
+        -project "$repo_path/MakeTask.xcodeproj" \
+        -scheme MakeTask \
+        -configuration Debug \
+        -destination 'platform=macOS' \
+        -derivedDataPath "$derived_data" \
+        INFOPLIST_KEY_LSUIElement=NO \
+        -only-testing:MakeTaskUITests \
+        -quiet \
+        test >&2; then
+        fail "UI tests failed. Review the Xcode errors above."
+    fi
+
+    printf 'All MakeTask UI tests passed.\n'
+}
+
+run_tests() {
+    run_unit_tests
+    run_ui_tests
+    printf 'The complete MakeTask test suite passed.\n'
 }
 
 case "${1:-}" in
@@ -182,6 +213,14 @@ case "${1:-}" in
     --test)
         [ "$#" -eq 1 ] || fail "--test does not accept additional arguments."
         run_tests
+        ;;
+    --unit-test)
+        [ "$#" -eq 1 ] || fail "--unit-test does not accept additional arguments."
+        run_unit_tests
+        ;;
+    --ui-test)
+        [ "$#" -eq 1 ] || fail "--ui-test does not accept additional arguments."
+        run_ui_tests
         ;;
     --repo)
         [ "$#" -eq 1 ] || fail "--repo does not accept additional arguments."

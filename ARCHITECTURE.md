@@ -111,7 +111,9 @@ MakeTask keeps native SwiftUI controls and keyboard focus behavior rather than r
 
 ## Test isolation
 
-`MakeTaskTests` is a hosted XCTest target so it can exercise internal backup and coordinator behavior. `AppRuntime` detects the XCTest host before application startup; tests receive an in-memory SwiftData container and skip window restoration and global hotkey registration. Each coordinator test also uses a unique `UserDefaults` suite. The suite therefore cannot read, overwrite, reveal, or reposition the user's real notes.
+`MakeTaskTests` is a hosted XCTest target so it can exercise internal backup, shortcut, persistence, and coordinator behavior. `AppRuntime` detects the XCTest host before application startup; tests receive an in-memory SwiftData container and skip window restoration and global hotkey registration. Each coordinator test also uses a unique `UserDefaults` suite.
+
+`MakeTaskUITests` launches with the same storage and preference isolation, disables global Carbon registration, and renders the real `NoteView` inside a standard test-only AppKit window. This lets XCTest automate a menu-bar app without changing production panel behavior. The UI build temporarily overrides `LSUIElement`; release and development builds remain accessory applications. Neither suite can read, overwrite, reveal, or reposition the user's real notes.
 
 ## Performance characteristics
 

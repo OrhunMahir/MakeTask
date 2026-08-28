@@ -172,24 +172,26 @@ final class WindowCoordinator: ObservableObject {
         self.launchAtLogin = launchAtLogin
     }
 
-    func start() {
+    func start(registerGlobalShortcuts: Bool = true) {
         migrateLegacyWindowDefaultsIfNeeded()
 
-        do {
-            let quickAddService = try GlobalHotKeyService(identifier: 1)
-            quickAddService.onPressed = { [weak self] in
-                self?.presentQuickAdd()
-            }
-            quickAddHotKeyService = quickAddService
+        if registerGlobalShortcuts {
+            do {
+                let quickAddService = try GlobalHotKeyService(identifier: 1)
+                quickAddService.onPressed = { [weak self] in
+                    self?.presentQuickAdd()
+                }
+                quickAddHotKeyService = quickAddService
 
-            let visibilityService = try GlobalHotKeyService(identifier: 2)
-            visibilityService.onPressed = { [weak self] in
-                self?.toggleAllNotesVisibility()
+                let visibilityService = try GlobalHotKeyService(identifier: 2)
+                visibilityService.onPressed = { [weak self] in
+                    self?.toggleAllNotesVisibility()
+                }
+                visibilityHotKeyService = visibilityService
+                _ = reloadGlobalShortcuts()
+            } catch {
+                errorMessage = error.localizedDescription
             }
-            visibilityHotKeyService = visibilityService
-            _ = reloadGlobalShortcuts()
-        } catch {
-            errorMessage = error.localizedDescription
         }
 
         installLocalKeyMonitor()
@@ -229,6 +231,7 @@ final class WindowCoordinator: ObservableObject {
         let color = NoteColor.allCases[existing.count % NoteColor.allCases.count]
         let list = TodoList(title: name, color: color, sortOrder: order)
         context.insert(list)
+        activeListID = list.id
 
         if settings.defaultListID == nil {
             settings.defaultListID = list.id
@@ -1100,8 +1103,10 @@ final class WindowCoordinator: ObservableObject {
             guard let action = self.settings.action(matching: event), !action.isGlobal else {
                 return event
             }
+
             let quickAddIsKey = self.quickAddWindow?.window?.isKeyWindow == true
-            let notePanelIsKey = !quickAddIsKey && NSApp.keyWindow is FloatingNotePanel
+            let notePanelIsKey = !quickAddIsKey
+                && (NSApp.keyWindow is FloatingNotePanel || AppRuntime.isRunningUITests)
             let isEditingText = NSApp.keyWindow?.firstResponder is NSTextView
 
             switch action {
