@@ -228,13 +228,13 @@ maketask --test
 
 Use `maketask --unit-test` for the fast model/service suite or `maketask --ui-test` for only the interactive macOS coverage. The UI suite briefly opens a dedicated test window; it never reads or writes the real MakeTask store.
 
-The test hosts automatically use an in-memory SwiftData container, isolated preferences, and skip system-wide shortcut registration. Fourteen unit tests cover JSON round trips, corrupt and forward-version backup rejection, safe additive import, fresh identifiers, duplicate-name handling, window bounds, default-list recovery, ordering, cascade deletion, and shortcut resolution. Five UI tests cover task creation/completion, collapse/expand, hide/reveal recovery, Quick Add, keyboard selection/editing, undo/redo, and inline list naming.
+The test hosts automatically use an in-memory SwiftData container, isolated preferences, and skip system-wide shortcut registration. Twenty-two unit tests cover JSON round trips, corrupt and forward-version backup rejection, safe additive import, fresh identifiers, duplicate-name handling, window bounds, default-list recovery, cascade deletion, shortcut resolution, and drag reordering within and between lists—including no-op drops, completion state, undo/redo, immediate drag-state cleanup, and persistence. Five UI tests cover task creation/completion, collapse/expand, hide/reveal recovery, Quick Add, keyboard selection/editing, undo/redo, and inline list naming.
 
 GitHub Actions also builds the Release app and runs the unit-test suite on every push and pull request. If a check fails, its Xcode result bundle is retained for seven days as a workflow artifact. Interactive UI tests remain local because they require a real macOS window session.
 
 ## Next phases
 
-- Additional drag-and-drop regression coverage
+- App Store release preparation: icon, signing, privacy/support pages, and screenshots
 - Optional cloud sync, only as an explicit opt-in feature
 
 ## Contributing
