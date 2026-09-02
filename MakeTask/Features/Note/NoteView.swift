@@ -158,11 +158,23 @@ struct NoteView: View {
                 )
             }
         }
-        .background(NoteBackground(color: list.noteColor))
-        .clipShape(RoundedRectangle(cornerRadius: NoteWindowMetrics.cornerRadius, style: .continuous))
+        .background(NoteBackground(color: list.noteColor, isCollapsed: list.isCollapsed))
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: list.isCollapsed
+                    ? NoteWindowMetrics.collapsedHeaderHeight / 2
+                    : NoteWindowMetrics.cornerRadius,
+                style: .continuous
+            )
+        )
         .overlay {
-            RoundedRectangle(cornerRadius: NoteWindowMetrics.cornerRadius, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.75)
+            RoundedRectangle(
+                cornerRadius: list.isCollapsed
+                    ? NoteWindowMetrics.collapsedHeaderHeight / 2
+                    : NoteWindowMetrics.cornerRadius,
+                style: .continuous
+            )
+            .strokeBorder(Color.white.opacity(list.isCollapsed ? 0.18 : 0.12), lineWidth: 0.75)
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: isSearching)
         .onReceive(coordinator.$focusNewTaskListID) { listID in
@@ -219,7 +231,7 @@ struct NoteView: View {
 
             TextField("Search tasks", text: $searchText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12.5))
+                .font(settings.font(size: 12.5))
                 .focused($isSearchFocused)
                 .onExitCommand(perform: closeSearch)
 
@@ -256,7 +268,7 @@ struct NoteView: View {
                 .font(.system(size: 18))
                 .foregroundStyle(.tertiary)
             Text(title)
-                .font(.system(size: 12.5, weight: .medium))
+                .font(settings.font(size: 12.5, weight: .medium))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -277,11 +289,11 @@ struct NoteView: View {
                 .frame(width: 8)
 
                 Text("Completed")
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .font(settings.font(size: 10.5, weight: .semibold))
                     .textCase(.uppercase)
 
                 Text("\(visibleCompletedTasks.count)")
-                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .font(settings.font(size: 9.5, weight: .medium))
 
                 Rectangle()
                     .fill(Color.secondary.opacity(0.2))

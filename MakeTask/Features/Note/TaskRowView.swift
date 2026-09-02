@@ -10,6 +10,7 @@ struct TaskRowView: View {
     @Binding var expandedTaskID: UUID?
 
     @EnvironmentObject private var coordinator: WindowCoordinator
+    @EnvironmentObject private var settings: AppSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
     @State private var titleDraft = ""
@@ -178,7 +179,7 @@ struct TaskRowView: View {
             if isEditing {
                 TextField("Task title", text: $titleDraft)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 13.5))
+                    .font(settings.font(size: 13.5))
                     .accessibilityIdentifier("task.title-field")
                     .focused($isTitleFocused)
                     .onSubmit(commitEditing)
@@ -186,7 +187,7 @@ struct TaskRowView: View {
             } else {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(task.title)
-                        .font(.system(size: 13.5))
+                        .font(settings.font(size: 13.5))
                         .strikethrough(task.isCompleted, color: .secondary)
                         .foregroundStyle(task.isCompleted ? .secondary : .primary)
                         .accessibilityIdentifier("task.title.\(task.id.uuidString)")
@@ -216,7 +217,7 @@ struct TaskRowView: View {
                                     .transition(.opacity)
                             }
                         }
-                        .font(.system(size: 9.5, weight: .semibold))
+                        .font(settings.font(size: 9.5, weight: .semibold))
                         .lineLimit(1)
                     }
                 }
@@ -227,6 +228,7 @@ struct TaskRowView: View {
                         taskID: task.id,
                         title: task.title,
                         tint: NSColor(list.noteColor.tint),
+                        font: settings.nsFont(size: 13.5, weight: .medium),
                         previewWidth: max(rowSize.width, 220),
                         onClick: {
                             selectedTaskID = task.id

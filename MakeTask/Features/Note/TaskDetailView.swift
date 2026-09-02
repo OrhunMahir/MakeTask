@@ -4,6 +4,7 @@ struct TaskDetailView: View {
     @Bindable var task: TodoTask
 
     @EnvironmentObject private var coordinator: WindowCoordinator
+    @EnvironmentObject private var settings: AppSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var notesSaveWorkItem: DispatchWorkItem?
     @State private var newSubtaskTitle = ""
@@ -50,7 +51,7 @@ struct TaskDetailView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Toggle("Due", isOn: hasDueDate)
                     .toggleStyle(.checkbox)
-                    .font(.system(size: 11.5, weight: .medium))
+                    .font(settings.font(size: 11.5, weight: .medium))
 
                 if task.dueDate != nil {
                     DatePicker(
@@ -69,13 +70,13 @@ struct TaskDetailView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Notes")
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .font(settings.font(size: 10.5, weight: .semibold))
                     .foregroundStyle(.secondary)
 
                 ZStack(alignment: .topLeading) {
                     if task.notes.isEmpty {
                         Text("Add a note…")
-                            .font(.system(size: 12))
+                            .font(settings.font(size: 12))
                             .foregroundStyle(.tertiary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 7)
@@ -83,7 +84,7 @@ struct TaskDetailView: View {
                     }
 
                     TextEditor(text: $task.notes)
-                        .font(.system(size: 12))
+                        .font(settings.font(size: 12))
                         .scrollContentBackground(.hidden)
                         .padding(2)
                         .onChange(of: task.notes) { _, _ in
@@ -114,7 +115,7 @@ struct TaskDetailView: View {
     private var priorityMenu: some View {
         HStack {
             Text("Priority")
-                .font(.system(size: 10.5, weight: .semibold))
+                .font(settings.font(size: 10.5, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             Spacer()
@@ -140,7 +141,7 @@ struct TaskDetailView: View {
                         .font(.system(size: 7.5, weight: .semibold))
                         .foregroundStyle(.tertiary)
                 }
-                .font(.system(size: 10.5, weight: .medium))
+                .font(settings.font(size: 10.5, weight: .medium))
                 .foregroundStyle(task.priorityLevel.tint)
                 .padding(.horizontal, 8)
                 .frame(height: 24)
@@ -158,12 +159,12 @@ struct TaskDetailView: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
                 Text("Subtasks")
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .font(settings.font(size: 10.5, weight: .semibold))
                     .foregroundStyle(.secondary)
 
                 if !task.subtasks.isEmpty {
                     Text("\(completedSubtaskCount)/\(task.subtasks.count)")
-                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                        .font(settings.font(size: 9.5, weight: .medium))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -187,7 +188,7 @@ struct TaskDetailView: View {
 
                 TextField("Add subtask…", text: $newSubtaskTitle)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 11.5))
+                    .font(settings.font(size: 11.5))
                     .focused($isNewSubtaskFocused)
                     .onSubmit(addSubtask)
                     .onExitCommand {
@@ -229,6 +230,7 @@ private struct SubtaskRowView: View {
     let tint: Color
 
     @EnvironmentObject private var coordinator: WindowCoordinator
+    @EnvironmentObject private var settings: AppSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
     @State private var isEditing = false
@@ -252,13 +254,13 @@ private struct SubtaskRowView: View {
             if isEditing {
                 TextField("Subtask title", text: $titleDraft)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 11.5))
+                    .font(settings.font(size: 11.5))
                     .focused($isTitleFocused)
                     .onSubmit(commitEditing)
                     .onExitCommand(perform: cancelEditing)
             } else {
                 Text(subtask.title)
-                    .font(.system(size: 11.5))
+                    .font(settings.font(size: 11.5))
                     .strikethrough(subtask.isCompleted, color: .secondary)
                     .foregroundStyle(subtask.isCompleted ? .secondary : .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)

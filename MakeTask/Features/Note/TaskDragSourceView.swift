@@ -5,6 +5,7 @@ struct TaskDragSourceView: NSViewRepresentable {
     let taskID: UUID
     let title: String
     let tint: NSColor
+    let font: NSFont
     let previewWidth: CGFloat
     let onClick: () -> Void
     let onDragBegan: () -> Void
@@ -24,6 +25,7 @@ struct TaskDragSourceView: NSViewRepresentable {
         view.taskID = taskID
         view.title = title
         view.tint = tint
+        view.font = font
         view.previewWidth = previewWidth
         view.onClick = onClick
         view.onDragBegan = onDragBegan
@@ -36,6 +38,7 @@ final class TaskDragSourceNSView: NSView, NSDraggingSource {
     var taskID = UUID()
     var title = ""
     var tint = NSColor.controlAccentColor
+    var font = NSFont.systemFont(ofSize: 13.5, weight: .medium)
     var previewWidth: CGFloat = 220
     var onClick: () -> Void = {}
     var onDragBegan: () -> Void = {}
@@ -132,7 +135,7 @@ final class TaskDragSourceNSView: NSView, NSDraggingSource {
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byTruncatingTail
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13.5, weight: .medium),
+            .font: font,
             .foregroundColor: NSColor.labelColor,
             .paragraphStyle: paragraph
         ]

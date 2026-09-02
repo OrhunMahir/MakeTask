@@ -15,6 +15,39 @@ struct AppearanceSettingsView: View {
             }
 
             Section {
+                Picker("Font", selection: $settings.typography) {
+                    ForEach(AppSettings.Typography.allCases) { typography in
+                        Text(typography.title).tag(typography)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                HStack(spacing: 12) {
+                    Image(systemName: "checkmark.circle")
+                        .foregroundStyle(.tint)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("MakeTask typography")
+                            .font(settings.font(size: 15, weight: .semibold))
+                        Text("Plan clearly. Finish calmly.")
+                            .font(settings.font(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding(12)
+                .background(
+                    Color.primary.opacity(0.045),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                )
+
+                Text("The selected font is used in desktop notes and Quick Add. Native menus keep the system font for macOS consistency.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Typography")
+            }
+
+            Section {
                 Toggle("Transparent note windows", isOn: $settings.transparencyEnabled)
 
                 HStack {

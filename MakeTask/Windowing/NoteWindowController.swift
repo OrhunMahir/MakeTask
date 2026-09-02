@@ -122,9 +122,9 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
 
             let collapsedFrame = NSRect(
                 x: currentFrame.minX,
-                y: top - NoteWindowMetrics.headerHeight,
+                y: top - NoteWindowMetrics.collapsedHeaderHeight,
                 width: currentFrame.width,
-                height: NoteWindowMetrics.headerHeight
+                height: NoteWindowMetrics.collapsedHeaderHeight
             )
 
             if shouldAnimate {

@@ -16,24 +16,44 @@ struct NoteHeaderView: View {
         list.tasks.lazy.filter(\.isCompleted).count
     }
 
+    private var headerHeight: CGFloat {
+        list.isCollapsed
+            ? NoteWindowMetrics.collapsedHeaderHeight
+            : NoteWindowMetrics.headerHeight
+    }
+
+    private var titleSize: CGFloat {
+        list.isCollapsed ? 18 : 13.5
+    }
+
     var body: some View {
-        HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(list.noteColor.tint)
-                .frame(width: 4, height: 18)
+        HStack(spacing: list.isCollapsed ? 10 : 8) {
+            if list.isCollapsed {
+                Image(systemName: completedCount == list.tasks.count && !list.tasks.isEmpty
+                    ? "checkmark.circle"
+                    : "circle.dashed"
+                )
+                .font(settings.font(size: 19, weight: .semibold))
+                .foregroundStyle(list.noteColor.tint)
+                .frame(width: 24)
+            } else {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(list.noteColor.tint)
+                    .frame(width: 4, height: 18)
+            }
 
             if isRenaming {
                 TextField("List name", text: $titleDraft)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(settings.font(size: titleSize, weight: list.isCollapsed ? .bold : .semibold))
                     .accessibilityIdentifier("note.list-name-field")
                     .focused($isTitleFocused)
                     .onSubmit(commitRename)
                     .onExitCommand(perform: cancelRename)
             } else {
                 Text(list.title)
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .lineLimit(1)
+                    .font(settings.font(size: titleSize, weight: list.isCollapsed ? .bold : .semibold))
+                    .lineLimit(list.isCollapsed ? 2 : 1)
                     .accessibilityIdentifier("note.title.\(list.id.uuidString)")
                     .contentShape(Rectangle())
                     .onTapGesture(perform: beginRename)
@@ -48,9 +68,23 @@ struct NoteHeaderView: View {
             .help("Drag to move · Double-click to collapse")
 
             if !list.tasks.isEmpty {
+                if list.isCollapsed {
+                    Circle()
+                        .fill(list.noteColor.tint.opacity(0.62))
+                        .frame(width: 7, height: 7)
+                }
+
                 Text("\(completedCount)/\(list.tasks.count)")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(settings.font(size: list.isCollapsed ? 12 : 11, weight: .semibold))
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, list.isCollapsed ? 9 : 0)
+                    .frame(height: list.isCollapsed ? 26 : nil)
+                    .background {
+                        if list.isCollapsed {
+                            Capsule()
+                                .fill(Color.primary.opacity(0.06))
+                        }
+                    }
             }
 
             Menu {
@@ -112,8 +146,8 @@ struct NoteHeaderView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 20, height: 20)
+                    .font(settings.font(size: list.isCollapsed ? 14 : 12, weight: .semibold))
+                    .frame(width: list.isCollapsed ? 24 : 20, height: 24)
                     .contentShape(Rectangle())
             }
             .menuStyle(.borderlessButton)
@@ -123,8 +157,8 @@ struct NoteHeaderView: View {
             .accessibilityIdentifier("note.options")
             .accessibilityLabel("List options")
         }
-        .padding(.horizontal, 12)
-        .frame(height: NoteWindowMetrics.headerHeight)
+        .padding(.horizontal, list.isCollapsed ? 18 : 12)
+        .frame(height: headerHeight)
         .onReceive(coordinator.$renameListID) { listID in
             guard listID == list.id else { return }
             beginRename()

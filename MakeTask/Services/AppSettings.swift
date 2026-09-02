@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import SwiftUI
 
 @MainActor
 final class AppSettings: ObservableObject {
@@ -24,6 +25,42 @@ final class AppSettings: ObservableObject {
             case .system: "System"
             case .light: "Light"
             case .dark: "Dark"
+            }
+        }
+    }
+
+    enum Typography: String, CaseIterable, Identifiable {
+        case system
+        case rounded
+        case serif
+        case monospaced
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .system: "System"
+            case .rounded: "Rounded"
+            case .serif: "Serif"
+            case .monospaced: "Monospaced"
+            }
+        }
+
+        fileprivate var swiftUIDesign: Font.Design {
+            switch self {
+            case .system: .default
+            case .rounded: .rounded
+            case .serif: .serif
+            case .monospaced: .monospaced
+            }
+        }
+
+        fileprivate var appKitDesign: NSFontDescriptor.SystemDesign? {
+            switch self {
+            case .system: nil
+            case .rounded: .rounded
+            case .serif: .serif
+            case .monospaced: .monospaced
             }
         }
     }
@@ -83,6 +120,7 @@ final class AppSettings: ObservableObject {
 
     private enum Key {
         static let appearance = "appearance"
+        static let typography = "typography"
         static let transparency = "transparency"
         static let noteOpacity = "noteOpacity"
         static let hideCompleted = "hideCompleted"
@@ -107,6 +145,10 @@ final class AppSettings: ObservableObject {
             defaults.set(appearance.rawValue, forKey: Key.appearance)
             applyAppearance()
         }
+    }
+
+    @Published var typography: Typography {
+        didSet { defaults.set(typography.rawValue, forKey: Key.typography) }
     }
 
     @Published var transparencyEnabled: Bool {
@@ -146,6 +188,9 @@ final class AppSettings: ObservableObject {
 
         appearance = AppearanceMode(
             rawValue: defaults.string(forKey: Key.appearance) ?? "system"
+        ) ?? .system
+        typography = Typography(
+            rawValue: defaults.string(forKey: Key.typography) ?? Typography.system.rawValue
         ) ?? .system
 
         transparencyEnabled = defaults.object(forKey: Key.transparency) as? Bool ?? true
@@ -208,6 +253,22 @@ final class AppSettings: ObservableObject {
         case .dark:
             NSApp.appearance = NSAppearance(named: .darkAqua)
         }
+    }
+
+    func font(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight, design: typography.swiftUIDesign)
+    }
+
+    func nsFont(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        let baseFont = NSFont.systemFont(ofSize: size, weight: weight)
+        guard
+            let design = typography.appKitDesign,
+            let descriptor = baseFont.fontDescriptor.withDesign(design),
+            let designedFont = NSFont(descriptor: descriptor, size: size)
+        else {
+            return baseFont
+        }
+        return designedFont
     }
 
     func playCompletionSound() {

@@ -17,7 +17,12 @@ final class QuickAddWindowController: NSWindowController, NSWindowDelegate {
             ? [.titled, .fullSizeContentView]
             : [.borderless]
         let panel = FloatingNotePanel(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 190),
+            contentRect: NSRect(
+                x: 0,
+                y: 0,
+                width: QuickAddWindowMetrics.width,
+                height: QuickAddWindowMetrics.height
+            ),
             styleMask: styleMask,
             backing: .buffered,
             defer: false

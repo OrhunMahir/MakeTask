@@ -6,6 +6,7 @@ struct NewTaskField: View {
     var isFocused: FocusState<Bool>.Binding
 
     @EnvironmentObject private var coordinator: WindowCoordinator
+    @EnvironmentObject private var settings: AppSettings
 
     var body: some View {
         HStack(spacing: 8) {
@@ -15,7 +16,7 @@ struct NewTaskField: View {
 
             TextField("New task…", text: $title)
                 .textFieldStyle(.plain)
-                .font(.system(size: 13.5))
+                .font(settings.font(size: 13.5))
                 .accessibilityIdentifier("note.new-task-field")
                 .accessibilityLabel("New task")
                 .focused(isFocused)

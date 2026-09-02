@@ -1,6 +1,12 @@
 import SwiftData
 import SwiftUI
 
+enum QuickAddWindowMetrics {
+    static let width: CGFloat = 560
+    static let height: CGFloat = 250
+    static let cornerRadius: CGFloat = 22
+}
+
 struct QuickAddView: View {
     private enum FocusField: Hashable {
         case taskTitle
@@ -26,15 +32,13 @@ struct QuickAddView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 22) {
             HStack {
-                Image(systemName: isListCreationMode ? "plus.rectangle.on.rectangle" : "bolt.fill")
-                    .foregroundStyle(isListCreationMode ? Color.accentColor : Color.yellow)
                 Text(isListCreationMode ? "New List" : "Add Task")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(settings.font(size: 19, weight: .bold))
                 Spacer()
                 Text(settings.quickAddShortcutDescription)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(settings.font(size: 11, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
 
@@ -44,18 +48,35 @@ struct QuickAddView: View {
                 taskCreationForm
             }
         }
-        .padding(20)
-        .frame(width: 420, height: 190)
+        .padding(.horizontal, 30)
+        .padding(.vertical, 26)
+        .frame(width: QuickAddWindowMetrics.width, height: QuickAddWindowMetrics.height)
         .background {
             ZStack {
                 VisualEffectView(material: .popover)
-                Color(nsColor: .windowBackgroundColor).opacity(0.20)
+                LinearGradient(
+                    colors: [
+                        Color.purple.opacity(0.10),
+                        Color(nsColor: .windowBackgroundColor).opacity(0.16),
+                        Color.orange.opacity(0.045)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: QuickAddWindowMetrics.cornerRadius,
+                style: .continuous
+            )
+        )
         .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.75)
+            RoundedRectangle(
+                cornerRadius: QuickAddWindowMetrics.cornerRadius,
+                style: .continuous
+            )
+            .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.8)
         }
         .onAppear {
             selectedListID = preferredList()?.id
@@ -82,34 +103,38 @@ struct QuickAddView: View {
 
     private var taskCreationForm: some View {
         Group {
-            TextField("What needs to be done?", text: $title)
-                .textFieldStyle(.plain)
-                .font(.system(size: 15))
-                .accessibilityIdentifier("quick-add.task-field")
-                .accessibilityLabel("Quick add task")
-                .padding(.horizontal, 12)
-                .frame(height: 38)
-                .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
-                .focused($focusedField, equals: .taskTitle)
-                .onSubmit(submitTask)
+            VStack(alignment: .leading, spacing: 7) {
+                TextField("What needs to be done?", text: $title)
+                    .textFieldStyle(.plain)
+                    .font(settings.font(size: 18, weight: .medium))
+                    .accessibilityIdentifier("quick-add.task-field")
+                    .accessibilityLabel("Quick add task")
+                    .focused($focusedField, equals: .taskTitle)
+                    .onSubmit(submitTask)
 
-            HStack(spacing: 7) {
-                Text("List:")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(.secondary)
+                Rectangle()
+                    .fill((selectedList?.noteColor.tint ?? Color.accentColor).opacity(0.48))
+                    .frame(height: 1)
+            }
+            .padding(.horizontal, 4)
+            .frame(height: 54)
 
+            HStack(spacing: 10) {
                 Picker("", selection: selectedListBinding) {
                     ForEach(lists) { list in
-                        Label(
-                            list.title,
-                            systemImage: list.isHidden ? "eye.slash" : "circle.fill"
-                        )
+                        HStack {
+                            Image(systemName: list.isHidden ? "eye.slash" : "circle.fill")
+                                .foregroundStyle(list.noteColor.tint)
+                            Text(list.title)
+                        }
                         .tag(list.id)
                     }
                 }
                 .labelsHidden()
-                .controlSize(.small)
-                .frame(maxWidth: 155)
+                .controlSize(.regular)
+                .font(settings.font(size: 13, weight: .medium))
+                .frame(width: 175)
+                .tint(selectedList?.noteColor.tint ?? .accentColor)
 
                 Button {
                     beginListCreation()
@@ -126,14 +151,26 @@ struct QuickAddView: View {
                         Label("Show Note", systemImage: "eye")
                     }
                     .buttonStyle(.borderless)
-                    .font(.system(size: 11.5))
+                    .font(settings.font(size: 11.5, weight: .medium))
                 }
 
-                Spacer(minLength: 4)
+                Spacer()
 
-                Text("↩ Add  ·  esc Close")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.tertiary)
+                Button("Cancel") {
+                    coordinator.dismissQuickAdd()
+                }
+                .buttonStyle(.plain)
+                .font(settings.font(size: 13, weight: .medium))
+
+                Button("Add Task") {
+                    submitTask()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .font(settings.font(size: 13, weight: .semibold))
+                .tint(selectedList?.noteColor.tint ?? .accentColor)
+                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .keyboardShortcut(.defaultAction)
             }
         }
     }
@@ -142,19 +179,23 @@ struct QuickAddView: View {
         Group {
             TextField("List name", text: $newListName)
                 .textFieldStyle(.plain)
-                .font(.system(size: 15))
+                .font(settings.font(size: 18, weight: .medium))
                 .accessibilityIdentifier("quick-add.list-name-field")
                 .accessibilityLabel("New list name")
-                .padding(.horizontal, 12)
-                .frame(height: 38)
-                .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+                .padding(.horizontal, 4)
+                .frame(height: 54)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Color.accentColor.opacity(0.48))
+                        .frame(height: 1)
+                }
                 .focused($focusedField, equals: .listName)
                 .onSubmit(createNamedList)
 
             HStack {
                 if lists.isEmpty {
                     Text("Create your first list")
-                        .font(.system(size: 11.5))
+                        .font(settings.font(size: 12))
                         .foregroundStyle(.secondary)
                 } else {
                     Button("Cancel") {
@@ -165,14 +206,14 @@ struct QuickAddView: View {
 
                 Spacer()
 
-                Text("↩ Create  ·  esc Cancel")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.tertiary)
-
                 Button("Create") {
                     createNamedList()
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .font(settings.font(size: 13, weight: .semibold))
                 .disabled(trimmedListName.isEmpty)
+                .keyboardShortcut(.defaultAction)
             }
         }
     }
