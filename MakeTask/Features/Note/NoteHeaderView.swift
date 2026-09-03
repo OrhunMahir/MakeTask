@@ -23,19 +23,19 @@ struct NoteHeaderView: View {
     }
 
     private var titleSize: CGFloat {
-        list.isCollapsed ? 18 : 13.5
+        list.isCollapsed ? 15.5 : 13.5
     }
 
     var body: some View {
-        HStack(spacing: list.isCollapsed ? 10 : 8) {
+        HStack(spacing: 8) {
             if list.isCollapsed {
                 Image(systemName: completedCount == list.tasks.count && !list.tasks.isEmpty
                     ? "checkmark.circle"
                     : "circle.dashed"
                 )
-                .font(settings.font(size: 19, weight: .semibold))
+                .font(settings.font(size: 16.5, weight: .semibold))
                 .foregroundStyle(list.noteColor.tint)
-                .frame(width: 24)
+                .frame(width: 20)
             } else {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(list.noteColor.tint)
@@ -53,7 +53,7 @@ struct NoteHeaderView: View {
             } else {
                 Text(list.title)
                     .font(settings.font(size: titleSize, weight: list.isCollapsed ? .bold : .semibold))
-                    .lineLimit(list.isCollapsed ? 2 : 1)
+                    .lineLimit(1)
                     .accessibilityIdentifier("note.title.\(list.id.uuidString)")
                     .contentShape(Rectangle())
                     .onTapGesture(perform: beginRename)
@@ -71,14 +71,14 @@ struct NoteHeaderView: View {
                 if list.isCollapsed {
                     Circle()
                         .fill(list.noteColor.tint.opacity(0.62))
-                        .frame(width: 7, height: 7)
+                        .frame(width: 6, height: 6)
                 }
 
                 Text("\(completedCount)/\(list.tasks.count)")
-                    .font(settings.font(size: list.isCollapsed ? 12 : 11, weight: .semibold))
+                    .font(settings.font(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, list.isCollapsed ? 9 : 0)
-                    .frame(height: list.isCollapsed ? 26 : nil)
+                    .padding(.horizontal, list.isCollapsed ? 8 : 0)
+                    .frame(height: list.isCollapsed ? 22 : nil)
                     .background {
                         if list.isCollapsed {
                             Capsule()
@@ -146,8 +146,8 @@ struct NoteHeaderView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(settings.font(size: list.isCollapsed ? 14 : 12, weight: .semibold))
-                    .frame(width: list.isCollapsed ? 24 : 20, height: 24)
+                    .font(settings.font(size: 12, weight: .semibold))
+                    .frame(width: 20, height: 22)
                     .contentShape(Rectangle())
             }
             .menuStyle(.borderlessButton)
@@ -157,7 +157,7 @@ struct NoteHeaderView: View {
             .accessibilityIdentifier("note.options")
             .accessibilityLabel("List options")
         }
-        .padding(.horizontal, list.isCollapsed ? 18 : 12)
+        .padding(.horizontal, list.isCollapsed ? 14 : 12)
         .frame(height: headerHeight)
         .onReceive(coordinator.$renameListID) { listID in
             guard listID == list.id else { return }

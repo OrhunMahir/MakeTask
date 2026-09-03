@@ -15,12 +15,12 @@ struct AppearanceSettingsView: View {
             }
 
             Section {
-                Picker("Font", selection: $settings.typography) {
+                Picker("Font family", selection: $settings.typography) {
                     ForEach(AppSettings.Typography.allCases) { typography in
                         Text(typography.title).tag(typography)
                     }
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
 
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.circle")
@@ -40,7 +40,7 @@ struct AppearanceSettingsView: View {
                     in: RoundedRectangle(cornerRadius: 10, style: .continuous)
                 )
 
-                Text("The selected font is used in desktop notes and Quick Add. Native menus keep the system font for macOS consistency.")
+                Text("The selected font is used in desktop notes and Quick Add. All options are built into macOS; native menus keep the system font for consistency.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } header: {

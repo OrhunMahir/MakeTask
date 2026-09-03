@@ -9,6 +9,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
     let list: TodoList
 
     private unowned let coordinator: WindowCoordinator
+    private unowned let settings: AppSettings
     private var pendingSave: DispatchWorkItem?
     private var appearanceSubscriptions: Set<AnyCancellable> = []
     private var isChangingCollapseState = false
@@ -22,6 +23,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
     ) {
         self.list = list
         self.coordinator = coordinator
+        self.settings = settings
 
         let panel = FloatingNotePanel(
             contentRect: frame,
@@ -119,11 +121,16 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
                 list.windowWidth = currentFrame.width
             }
             panel.styleMask.remove(.resizable)
+            let collapsedWidth = collapsedWidth(for: currentFrame)
+            panel.minSize = NSSize(
+                width: NoteWindowMetrics.collapsedMinimumWidth,
+                height: NoteWindowMetrics.collapsedHeaderHeight
+            )
 
             let collapsedFrame = NSRect(
                 x: currentFrame.minX,
                 y: top - NoteWindowMetrics.collapsedHeaderHeight,
-                width: currentFrame.width,
+                width: collapsedWidth,
                 height: NoteWindowMetrics.collapsedHeaderHeight
             )
 
@@ -150,12 +157,16 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
         } else {
             list.isCollapsed = false
             panel.styleMask.insert(.resizable)
+            panel.minSize = NSSize(
+                width: NoteWindowMetrics.minimumWidth,
+                height: NoteWindowMetrics.headerHeight
+            )
 
             let expandedHeight = max(list.windowHeight, NoteWindowMetrics.headerHeight + 120)
             let expandedFrame = NSRect(
                 x: currentFrame.minX,
                 y: top - expandedHeight,
-                width: max(currentFrame.width, NoteWindowMetrics.minimumWidth),
+                width: max(list.windowWidth, NoteWindowMetrics.minimumWidth),
                 height: expandedHeight
             )
             if shouldAnimate {
@@ -205,10 +216,29 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
         guard let frame = window?.frame else { return }
         list.windowX = frame.minX
         list.windowTop = frame.maxY
-        list.windowWidth = frame.width
         if !list.isCollapsed && !isChangingCollapseState {
+            list.windowWidth = frame.width
             list.windowHeight = frame.height
         }
+    }
+
+    private func collapsedWidth(for currentFrame: NSRect) -> CGFloat {
+        let titleWidth = ceil(
+            (list.title as NSString).size(
+                withAttributes: [
+                    .font: settings.nsFont(size: 15.5, weight: .bold)
+                ]
+            ).width
+        )
+        let progressWidth: CGFloat = list.tasks.isEmpty ? 0 : 58
+        let fixedWidth: CGFloat = 14 + 20 + 8 + 10 + progressWidth + 20 + 14
+        let proposedWidth = titleWidth + fixedWidth
+        let availableWidth = min(currentFrame.width, NoteWindowMetrics.collapsedMaximumWidth)
+
+        return min(
+            max(proposedWidth, NoteWindowMetrics.collapsedMinimumWidth),
+            max(availableWidth, NoteWindowMetrics.collapsedMinimumWidth)
+        )
     }
 
     private func scheduleSave() {

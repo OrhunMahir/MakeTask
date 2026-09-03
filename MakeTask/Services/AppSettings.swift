@@ -34,6 +34,10 @@ final class AppSettings: ObservableObject {
         case rounded
         case serif
         case monospaced
+        case avenirNext
+        case helveticaNeue
+        case georgia
+        case palatino
 
         var id: String { rawValue }
 
@@ -43,6 +47,20 @@ final class AppSettings: ObservableObject {
             case .rounded: "Rounded"
             case .serif: "Serif"
             case .monospaced: "Monospaced"
+            case .avenirNext: "Avenir Next"
+            case .helveticaNeue: "Helvetica Neue"
+            case .georgia: "Georgia"
+            case .palatino: "Palatino"
+            }
+        }
+
+        fileprivate var customFamilyName: String? {
+            switch self {
+            case .avenirNext: "Avenir Next"
+            case .helveticaNeue: "Helvetica Neue"
+            case .georgia: "Georgia"
+            case .palatino: "Palatino"
+            case .system, .rounded, .serif, .monospaced: nil
             }
         }
 
@@ -52,6 +70,7 @@ final class AppSettings: ObservableObject {
             case .rounded: .rounded
             case .serif: .serif
             case .monospaced: .monospaced
+            case .avenirNext, .helveticaNeue, .georgia, .palatino: .default
             }
         }
 
@@ -61,6 +80,7 @@ final class AppSettings: ObservableObject {
             case .rounded: .rounded
             case .serif: .serif
             case .monospaced: .monospaced
+            case .avenirNext, .helveticaNeue, .georgia, .palatino: nil
             }
         }
     }
@@ -256,11 +276,25 @@ final class AppSettings: ObservableObject {
     }
 
     func font(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: typography.swiftUIDesign)
+        if let familyName = typography.customFamilyName {
+            return .custom(familyName, fixedSize: size).weight(weight)
+        }
+
+        return .system(size: size, weight: weight, design: typography.swiftUIDesign)
     }
 
     func nsFont(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
         let baseFont = NSFont.systemFont(ofSize: size, weight: weight)
+
+        if let familyName = typography.customFamilyName {
+            return NSFontManager.shared.font(
+                withFamily: familyName,
+                traits: [],
+                weight: fontManagerWeight(for: weight),
+                size: size
+            ) ?? NSFont(name: familyName, size: size) ?? baseFont
+        }
+
         guard
             let design = typography.appKitDesign,
             let descriptor = baseFont.fontDescriptor.withDesign(design),
@@ -269,6 +303,16 @@ final class AppSettings: ObservableObject {
             return baseFont
         }
         return designedFont
+    }
+
+    private func fontManagerWeight(for weight: NSFont.Weight) -> Int {
+        switch weight.rawValue {
+        case ...NSFont.Weight.light.rawValue: 3
+        case ..<NSFont.Weight.medium.rawValue: 5
+        case ..<NSFont.Weight.semibold.rawValue: 6
+        case ..<NSFont.Weight.bold.rawValue: 8
+        default: 10
+        }
     }
 
     func playCompletionSound() {
