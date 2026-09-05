@@ -6,6 +6,7 @@ struct NoteHeaderView: View {
     @Binding var isConfirmingDelete: Bool
 
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var coordinator: WindowCoordinator
     @EnvironmentObject private var settings: AppSettings
     @State private var isRenaming = false
@@ -158,11 +159,11 @@ struct NoteHeaderView: View {
             .accessibilityLabel("List options")
         }
         .padding(.horizontal, 12)
-        // Keep the title at the same distance from the window's top edge while
-        // the collapsed window clips away the lower part of the full header.
-        .frame(height: NoteWindowMetrics.headerHeight)
-        .frame(height: headerHeight, alignment: .top)
-        .clipped()
+        .frame(height: headerHeight)
+        .animation(
+            reduceMotion ? nil : .easeInOut(duration: 0.18),
+            value: list.isCollapsed
+        )
         .onReceive(coordinator.$renameListID) { listID in
             guard listID == list.id else { return }
             beginRename()
