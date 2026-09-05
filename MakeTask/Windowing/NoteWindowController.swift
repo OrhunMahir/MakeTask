@@ -135,6 +135,8 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
 
             if shouldAnimate {
                 isChangingCollapseState = true
+                list.isCollapsed = true
+                panel.contentView?.layoutSubtreeIfNeeded()
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.18
                     context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -142,7 +144,6 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
                 } completionHandler: { [weak self] in
                     Task { @MainActor [weak self] in
                         guard let self else { return }
-                        self.list.isCollapsed = true
                         self.isChangingCollapseState = false
                         self.rememberCurrentFrame()
                         if persist { self.coordinator.saveContext() }

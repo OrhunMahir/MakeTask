@@ -158,6 +158,7 @@ struct NoteView: View {
                 )
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(NoteBackground(color: list.noteColor, isCollapsed: list.isCollapsed))
         .clipShape(
             RoundedRectangle(

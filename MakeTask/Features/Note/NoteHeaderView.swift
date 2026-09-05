@@ -158,7 +158,11 @@ struct NoteHeaderView: View {
             .accessibilityLabel("List options")
         }
         .padding(.horizontal, 12)
-        .frame(height: headerHeight)
+        // Keep the title at the same distance from the window's top edge while
+        // the collapsed window clips away the lower part of the full header.
+        .frame(height: NoteWindowMetrics.headerHeight)
+        .frame(height: headerHeight, alignment: .top)
+        .clipped()
         .onReceive(coordinator.$renameListID) { listID in
             guard listID == list.id else { return }
             beginRename()
