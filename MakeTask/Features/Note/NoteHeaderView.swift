@@ -23,9 +23,8 @@ struct NoteHeaderView: View {
             : NoteWindowMetrics.headerHeight
     }
 
-    private var titleSize: CGFloat {
-        list.isCollapsed ? 14 : 13.5
-    }
+    private let titleSize: CGFloat = 14
+    private let headerContentHeight: CGFloat = 38
 
     var body: some View {
         HStack(spacing: 8) {
@@ -46,14 +45,14 @@ struct NoteHeaderView: View {
             if isRenaming {
                 TextField("List name", text: $titleDraft)
                     .textFieldStyle(.plain)
-                    .font(settings.font(size: titleSize, weight: list.isCollapsed ? .bold : .semibold))
+                    .font(settings.font(size: titleSize, weight: .semibold))
                     .accessibilityIdentifier("note.list-name-field")
                     .focused($isTitleFocused)
                     .onSubmit(commitRename)
                     .onExitCommand(perform: cancelRename)
             } else {
                 Text(list.title)
-                    .font(settings.font(size: titleSize, weight: list.isCollapsed ? .bold : .semibold))
+                    .font(settings.font(size: titleSize, weight: .semibold))
                     .lineLimit(1)
                     .accessibilityIdentifier("note.title.\(list.id.uuidString)")
                     .contentShape(Rectangle())
@@ -159,7 +158,9 @@ struct NoteHeaderView: View {
             .accessibilityLabel("List options")
         }
         .padding(.horizontal, 12)
-        .frame(height: headerHeight)
+        .frame(height: headerContentHeight)
+        .frame(height: headerHeight, alignment: .top)
+        .clipped()
         .animation(
             reduceMotion ? nil : .easeInOut(duration: 0.18),
             value: list.isCollapsed
