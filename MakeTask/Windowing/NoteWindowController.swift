@@ -121,16 +121,15 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
                 list.windowWidth = currentFrame.width
             }
             panel.styleMask.remove(.resizable)
-            let collapsedWidth = collapsedWidth(for: currentFrame)
             panel.minSize = NSSize(
-                width: NoteWindowMetrics.collapsedMinimumWidth,
+                width: NoteWindowMetrics.minimumWidth,
                 height: NoteWindowMetrics.collapsedHeaderHeight
             )
 
             let collapsedFrame = NSRect(
                 x: currentFrame.minX,
                 y: top - NoteWindowMetrics.collapsedHeaderHeight,
-                width: collapsedWidth,
+                width: currentFrame.width,
                 height: NoteWindowMetrics.collapsedHeaderHeight
             )
 
@@ -220,25 +219,6 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
             list.windowWidth = frame.width
             list.windowHeight = frame.height
         }
-    }
-
-    private func collapsedWidth(for currentFrame: NSRect) -> CGFloat {
-        let titleWidth = ceil(
-            (list.title as NSString).size(
-                withAttributes: [
-                    .font: settings.nsFont(size: 15.5, weight: .bold)
-                ]
-            ).width
-        )
-        let progressWidth: CGFloat = list.tasks.isEmpty ? 0 : 58
-        let fixedWidth: CGFloat = 14 + 20 + 8 + 10 + progressWidth + 20 + 14
-        let proposedWidth = titleWidth + fixedWidth
-        let availableWidth = min(currentFrame.width, NoteWindowMetrics.collapsedMaximumWidth)
-
-        return min(
-            max(proposedWidth, NoteWindowMetrics.collapsedMinimumWidth),
-            max(availableWidth, NoteWindowMetrics.collapsedMinimumWidth)
-        )
     }
 
     private func scheduleSave() {

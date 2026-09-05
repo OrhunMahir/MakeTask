@@ -23,7 +23,7 @@ struct NoteHeaderView: View {
     }
 
     private var titleSize: CGFloat {
-        list.isCollapsed ? 15.5 : 13.5
+        list.isCollapsed ? 14 : 13.5
     }
 
     var body: some View {
@@ -33,9 +33,9 @@ struct NoteHeaderView: View {
                     ? "checkmark.circle"
                     : "circle.dashed"
                 )
-                .font(settings.font(size: 16.5, weight: .semibold))
+                .font(settings.font(size: 15, weight: .semibold))
                 .foregroundStyle(list.noteColor.tint)
-                .frame(width: 20)
+                .frame(width: 18)
             } else {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(list.noteColor.tint)
@@ -77,8 +77,8 @@ struct NoteHeaderView: View {
                 Text("\(completedCount)/\(list.tasks.count)")
                     .font(settings.font(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, list.isCollapsed ? 8 : 0)
-                    .frame(height: list.isCollapsed ? 22 : nil)
+                    .padding(.horizontal, list.isCollapsed ? 7 : 0)
+                    .frame(height: list.isCollapsed ? 20 : nil)
                     .background {
                         if list.isCollapsed {
                             Capsule()
@@ -157,7 +157,7 @@ struct NoteHeaderView: View {
             .accessibilityIdentifier("note.options")
             .accessibilityLabel("List options")
         }
-        .padding(.horizontal, list.isCollapsed ? 14 : 12)
+        .padding(.horizontal, 12)
         .frame(height: headerHeight)
         .onReceive(coordinator.$renameListID) { listID in
             guard listID == list.id else { return }
