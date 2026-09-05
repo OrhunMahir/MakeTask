@@ -66,6 +66,24 @@ final class MakeTaskUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Complete \(taskTitle)"].waitForExistence(timeout: 3))
     }
 
+    func testQuickAddDeletesSelectedListWithConfirmation() {
+        performMenuItem("Quick Add", in: "Note")
+
+        let deleteListButton = app.buttons["quick-add.delete-list"]
+        XCTAssertTrue(deleteListButton.waitForExistence(timeout: 2))
+        deleteListButton.click()
+
+        XCTAssertTrue(
+            app.buttons["quick-add.confirm-delete-list"].waitForExistence(timeout: 2)
+        )
+        app.typeKey(.return, modifierFlags: [])
+
+        XCTAssertTrue(
+            app.textFields["quick-add.list-name-field"].waitForExistence(timeout: 2),
+            "Deleting the only list should switch Quick Add to first-list creation."
+        )
+    }
+
     func testKeyboardSelectionEditingUndoAndRedo() {
         app.typeKey(.downArrow, modifierFlags: [])
         app.typeKey(.return, modifierFlags: [])

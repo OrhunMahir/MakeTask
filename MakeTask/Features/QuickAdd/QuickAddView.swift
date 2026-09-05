@@ -11,6 +11,7 @@ struct QuickAddView: View {
     private enum FocusField: Hashable {
         case taskTitle
         case listName
+        case deleteConfirmation
     }
 
     @Query(sort: \TodoList.sortOrder) private var lists: [TodoList]
@@ -21,6 +22,9 @@ struct QuickAddView: View {
     @State private var selectedListID: UUID?
     @State private var isCreatingList = false
     @State private var newListName = ""
+    @State private var listPendingDeletionID: UUID?
+    @State private var listPendingDeletionTitle = ""
+    @State private var isConfirmingListDeletion = false
     @FocusState private var focusedField: FocusField?
 
     private var isListCreationMode: Bool {
@@ -78,6 +82,12 @@ struct QuickAddView: View {
             )
             .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.8)
         }
+        .overlay {
+            if isConfirmingListDeletion {
+                listDeletionConfirmation
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            }
+        }
         .onAppear {
             selectedListID = preferredList()?.id
             isCreatingList = lists.isEmpty
@@ -93,11 +103,76 @@ struct QuickAddView: View {
             focusAppropriateField()
         }
         .onExitCommand {
-            if isCreatingList && !lists.isEmpty {
+            if isConfirmingListDeletion {
+                clearPendingListDeletion()
+                focusAppropriateField()
+            } else if isCreatingList && !lists.isEmpty {
                 cancelListCreation()
             } else {
                 coordinator.dismissQuickAdd()
             }
+        }
+        .onKeyPress(.return) {
+            guard isConfirmingListDeletion else { return .ignored }
+            deletePendingList()
+            return .handled
+        }
+        .animation(.easeInOut(duration: 0.14), value: isConfirmingListDeletion)
+    }
+
+    private var listDeletionConfirmation: some View {
+        ZStack {
+            Color.black.opacity(0.24)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    clearPendingListDeletion()
+                    focusAppropriateField()
+                }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Delete “\(listPendingDeletionTitle)”?")
+                    .font(settings.font(size: 16, weight: .semibold))
+
+                Text("The list and all of its tasks will be deleted. You can press ⌘Z immediately afterward to undo.")
+                    .font(settings.font(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack {
+                    Spacer()
+
+                    Button("Cancel") {
+                        clearPendingListDeletion()
+                        focusAppropriateField()
+                    }
+                    .keyboardShortcut(.cancelAction)
+
+                    Button("Delete List", role: .destructive) {
+                        deletePendingList()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .keyboardShortcut(.defaultAction)
+                    .focused($focusedField, equals: .deleteConfirmation)
+                    .accessibilityIdentifier("quick-add.confirm-delete-list")
+                    .onAppear {
+                        DispatchQueue.main.async {
+                            focusedField = .deleteConfirmation
+                        }
+                    }
+                }
+            }
+            .padding(18)
+            .frame(width: 370)
+            .background(
+                .regularMaterial,
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.75)
+            }
+            .shadow(color: .black.opacity(0.24), radius: 18, y: 8)
         }
     }
 
@@ -144,6 +219,17 @@ struct QuickAddView: View {
                 .buttonStyle(.borderless)
                 .help("Create a new list")
 
+                Button {
+                    beginListDeletion()
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.borderless)
+                .help("Delete selected list")
+                .accessibilityIdentifier("quick-add.delete-list")
+                .accessibilityLabel("Delete selected list")
+
                 if let selectedList, selectedList.isHidden {
                     Button {
                         coordinator.showAndActivate(selectedList)
@@ -170,7 +256,6 @@ struct QuickAddView: View {
                 .font(settings.font(size: 13, weight: .semibold))
                 .tint(selectedList?.noteColor.tint ?? .accentColor)
                 .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .keyboardShortcut(.defaultAction)
             }
         }
     }
@@ -257,6 +342,44 @@ struct QuickAddView: View {
         DispatchQueue.main.async {
             focusedField = .listName
         }
+    }
+
+    private func beginListDeletion() {
+        guard let selectedList else { return }
+        listPendingDeletionID = selectedList.id
+        listPendingDeletionTitle = selectedList.title
+        isConfirmingListDeletion = true
+        DispatchQueue.main.async {
+            focusedField = .deleteConfirmation
+        }
+    }
+
+    private func deletePendingList() {
+        guard
+            let listPendingDeletionID,
+            let list = lists.first(where: { $0.id == listPendingDeletionID })
+        else {
+            clearPendingListDeletion()
+            return
+        }
+
+        let remainingLists = lists.filter { $0.id != listPendingDeletionID }
+        let replacement = settings.defaultListID.flatMap { defaultID in
+            remainingLists.first(where: { $0.id == defaultID })
+        } ?? remainingLists.first
+
+        coordinator.deleteList(list)
+        selectedListID = replacement?.id
+        settings.lastQuickCaptureListID = replacement?.id
+        isCreatingList = replacement == nil
+        clearPendingListDeletion()
+        focusAppropriateField()
+    }
+
+    private func clearPendingListDeletion() {
+        isConfirmingListDeletion = false
+        listPendingDeletionID = nil
+        listPendingDeletionTitle = ""
     }
 
     private func cancelListCreation() {
