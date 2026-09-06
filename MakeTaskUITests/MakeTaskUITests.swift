@@ -76,6 +76,7 @@ final class MakeTaskUITests: XCTestCase {
         XCTAssertTrue(
             app.buttons["quick-add.confirm-delete-list"].waitForExistence(timeout: 2)
         )
+        XCTAssertTrue(app.staticTexts["quick-add.delete-list-warning"].exists)
         app.typeKey(.return, modifierFlags: [])
 
         XCTAssertTrue(

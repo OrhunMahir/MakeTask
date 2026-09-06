@@ -130,10 +130,11 @@ struct QuickAddView: View {
                 }
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("Delete “\(listPendingDeletionTitle)”?")
+                Text("Are you sure you want to delete “\(listPendingDeletionTitle)”?")
                     .font(settings.font(size: 16, weight: .semibold))
+                    .accessibilityIdentifier("quick-add.delete-list-warning")
 
-                Text("The list and all of its tasks will be deleted. You can press ⌘Z immediately afterward to undo.")
+                Text("This list and all of its tasks will be deleted. You can press ⌘Z immediately afterward to undo.")
                     .font(settings.font(size: 12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -195,6 +196,16 @@ struct QuickAddView: View {
             .frame(height: 54)
 
             HStack(spacing: 10) {
+                Button {
+                    beginListCreation()
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(.borderless)
+                .help("Create a new list")
+                .accessibilityIdentifier("quick-add.new-list")
+                .accessibilityLabel("Create a new list")
+
                 Picker("", selection: selectedListBinding) {
                     ForEach(lists) { list in
                         HStack {
@@ -210,14 +221,7 @@ struct QuickAddView: View {
                 .font(settings.font(size: 13, weight: .medium))
                 .frame(width: 175)
                 .tint(selectedList?.noteColor.tint ?? .accentColor)
-
-                Button {
-                    beginListCreation()
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .buttonStyle(.borderless)
-                .help("Create a new list")
+                .accessibilityIdentifier("quick-add.list-picker")
 
                 Button {
                     beginListDeletion()
