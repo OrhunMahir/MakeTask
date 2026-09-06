@@ -24,7 +24,6 @@ struct NoteHeaderView: View {
     }
 
     private let titleSize: CGFloat = 14
-    private let headerContentHeight: CGFloat = 38
 
     var body: some View {
         HStack(spacing: 8) {
@@ -158,13 +157,13 @@ struct NoteHeaderView: View {
             .accessibilityLabel("List options")
         }
         .padding(.horizontal, 12)
-        .frame(height: headerContentHeight)
-        .frame(height: headerHeight, alignment: .top)
-        .clipped()
+        .frame(height: NoteWindowMetrics.collapsedHeaderHeight)
         .animation(
             reduceMotion ? nil : .easeInOut(duration: 0.18),
             value: list.isCollapsed
         )
+        .frame(height: headerHeight, alignment: .top)
+        .clipped()
         .onReceive(coordinator.$renameListID) { listID in
             guard listID == list.id else { return }
             beginRename()
