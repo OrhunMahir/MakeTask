@@ -3,6 +3,10 @@ import UniformTypeIdentifiers
 
 struct NoteView: View {
     @Bindable var list: TodoList
+    var presentation: NoteCollapsePresentation? = nil
+
+    private var showsBody: Bool { presentation?.showsBody ?? !list.isCollapsed }
+    private var collapsedChrome: Bool { presentation?.collapsedChrome ?? list.isCollapsed }
 
     @EnvironmentObject private var coordinator: WindowCoordinator
     @EnvironmentObject private var settings: AppSettings
@@ -50,10 +54,12 @@ struct NoteView: View {
         VStack(spacing: 0) {
             NoteHeaderView(
                 list: list,
+                isCollapsed: collapsedChrome,
                 isConfirmingDelete: $isConfirmingDelete
             )
 
-            if !list.isCollapsed {
+            if showsBody {
+                Color.clear.frame(height: NoteWindowMetrics.headerHeight - NoteWindowMetrics.collapsedHeaderHeight)
                 Divider().opacity(0.45)
 
                 if isSearching {
@@ -159,10 +165,10 @@ struct NoteView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(NoteBackground(color: list.noteColor, isCollapsed: list.isCollapsed))
+        .background(NoteBackground(color: list.noteColor, isCollapsed: collapsedChrome))
         .clipShape(
             RoundedRectangle(
-                cornerRadius: list.isCollapsed
+                cornerRadius: collapsedChrome
                     ? NoteWindowMetrics.collapsedHeaderHeight / 2
                     : NoteWindowMetrics.cornerRadius,
                 style: .continuous
@@ -170,12 +176,12 @@ struct NoteView: View {
         )
         .overlay {
             RoundedRectangle(
-                cornerRadius: list.isCollapsed
+                cornerRadius: collapsedChrome
                     ? NoteWindowMetrics.collapsedHeaderHeight / 2
                     : NoteWindowMetrics.cornerRadius,
                 style: .continuous
             )
-            .strokeBorder(Color.white.opacity(list.isCollapsed ? 0.18 : 0.12), lineWidth: 0.75)
+            .strokeBorder(Color.white.opacity(collapsedChrome ? 0.18 : 0.12), lineWidth: 0.75)
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: isSearching)
         .onReceive(coordinator.$focusNewTaskListID) { listID in

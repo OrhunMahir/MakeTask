@@ -134,7 +134,7 @@ The Quick Add surface is another small borderless panel. It is created on demand
 
 ### True roll-up
 
-Collapse never calls `orderOut` and never closes the panel. The expanded height is persisted, while the window's top edge is treated as its anchor. Collapsing animates the bottom edge upward to a 46-point header; expanding reconstructs the previous frame from the saved top edge and expanded height.
+Collapse never calls `orderOut` and never closes the panel. The expanded height is persisted, while the window's top edge is treated as its anchor. Collapsing animates the bottom edge upward to a 34-point header while preserving the expanded width. A separate presentation phase keeps the title in a fixed 34-point layer; the expanded body and 46-point minimum window height return only after expansion finishes. One native animation clock controls the frame, intermediate resize notifications do not write to SwiftData, and rapid toggles queue the latest requested state. Reduce Motion completes the transition synchronously.
 
 Hide is deliberately different: it calls `orderOut`, marks the list hidden, and lets the menu bar show it again. Hidden notes are labeled explicitly in the menu, can be revealed from Quick Add, and `⌘⇧H` toggles all notes globally.
 
@@ -228,7 +228,7 @@ maketask --test
 
 Use `maketask --unit-test` for the fast model/service suite or `maketask --ui-test` for only the interactive macOS coverage. The UI suite briefly opens a dedicated test window; it never reads or writes the real MakeTask store.
 
-The test hosts automatically use an in-memory SwiftData container, isolated preferences, and skip system-wide shortcut registration. Twenty-two unit tests cover JSON round trips, corrupt and forward-version backup rejection, safe additive import, fresh identifiers, duplicate-name handling, window bounds, default-list recovery, cascade deletion, shortcut resolution, and drag reordering within and between lists—including no-op drops, completion state, undo/redo, immediate drag-state cleanup, and persistence. Five UI tests cover task creation/completion, collapse/expand, hide/reveal recovery, Quick Add, keyboard selection/editing, undo/redo, and inline list naming.
+The test hosts automatically use an in-memory SwiftData container, isolated preferences, and skip system-wide shortcut registration. Twenty-nine unit tests cover JSON round trips, corrupt and forward-version backup rejection, safe additive import, fresh identifiers, duplicate-name handling, window bounds, default-list recovery, cascade deletion, shortcut resolution, and drag reordering within and between lists—including no-op drops, completion state, undo/redo, immediate drag-state cleanup, and persistence. Six UI tests cover task creation/completion, collapse/expand, hide/reveal recovery, Quick Add, keyboard selection/editing, undo/redo, inline list naming, and Quick Add list deletion. Five of the unit tests instantiate the real `NoteWindowController` and `FloatingNotePanel`, measure the actual SwiftUI title bounds in screen coordinates, and cover start/mid/end geometry, a real animation clock, rapid toggles, and the nonanimated/Reduce Motion path. The separate UI host is not evidence of native panel animation correctness.
 
 GitHub Actions also builds the Release app and runs the unit-test suite on every push and pull request. If a check fails, its Xcode result bundle is retained for seven days as a workflow artifact. Interactive UI tests remain local because they require a real macOS window session.
 

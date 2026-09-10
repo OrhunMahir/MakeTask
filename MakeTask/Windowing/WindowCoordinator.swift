@@ -390,10 +390,10 @@ final class WindowCoordinator: ObservableObject {
     func toggleCollapse(_ list: TodoList) {
         guard let controller = noteWindows[list.id] else {
             show(list)
-            noteWindows[list.id]?.setCollapsed(!list.isCollapsed, animated: true)
+            noteWindows[list.id]?.toggleCollapsed()
             return
         }
-        controller.setCollapsed(!list.isCollapsed, animated: true)
+        controller.toggleCollapsed()
     }
 
     func collapseActiveNote() {

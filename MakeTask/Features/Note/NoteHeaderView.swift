@@ -3,10 +3,10 @@ import SwiftUI
 
 struct NoteHeaderView: View {
     @Bindable var list: TodoList
+    var isCollapsed: Bool
     @Binding var isConfirmingDelete: Bool
 
     @Environment(\.openSettings) private var openSettings
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var coordinator: WindowCoordinator
     @EnvironmentObject private var settings: AppSettings
     @State private var isRenaming = false
@@ -17,17 +17,11 @@ struct NoteHeaderView: View {
         list.tasks.lazy.filter(\.isCompleted).count
     }
 
-    private var headerHeight: CGFloat {
-        list.isCollapsed
-            ? NoteWindowMetrics.collapsedHeaderHeight
-            : NoteWindowMetrics.headerHeight
-    }
-
     private let titleSize: CGFloat = 14
 
     var body: some View {
         HStack(spacing: 8) {
-            if list.isCollapsed {
+            if isCollapsed {
                 Image(systemName: completedCount == list.tasks.count && !list.tasks.isEmpty
                     ? "checkmark.circle"
                     : "circle.dashed"
@@ -53,6 +47,11 @@ struct NoteHeaderView: View {
                 Text(list.title)
                     .font(settings.font(size: titleSize, weight: .semibold))
                     .lineLimit(1)
+                    .background {
+                        #if DEBUG
+                        NoteTitleLayoutProbe()
+                        #endif
+                    }
                     .accessibilityIdentifier("note.title.\(list.id.uuidString)")
                     .contentShape(Rectangle())
                     .onTapGesture(perform: beginRename)
@@ -67,7 +66,7 @@ struct NoteHeaderView: View {
             .help("Drag to move · Double-click to collapse")
 
             if !list.tasks.isEmpty {
-                if list.isCollapsed {
+                if isCollapsed {
                     Circle()
                         .fill(list.noteColor.tint.opacity(0.62))
                         .frame(width: 6, height: 6)
@@ -76,10 +75,10 @@ struct NoteHeaderView: View {
                 Text("\(completedCount)/\(list.tasks.count)")
                     .font(settings.font(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, list.isCollapsed ? 7 : 0)
-                    .frame(height: list.isCollapsed ? 20 : nil)
+                    .padding(.horizontal, isCollapsed ? 7 : 0)
+                    .frame(height: isCollapsed ? 20 : nil)
                     .background {
-                        if list.isCollapsed {
+                        if isCollapsed {
                             Capsule()
                                 .fill(Color.primary.opacity(0.06))
                         }
@@ -121,7 +120,7 @@ struct NoteHeaderView: View {
 
                 Divider()
 
-                Button(list.isCollapsed ? "Expand" : "Collapse") {
+                Button(isCollapsed ? "Expand" : "Collapse") {
                     coordinator.toggleCollapse(list)
                 }
 
@@ -158,11 +157,6 @@ struct NoteHeaderView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: NoteWindowMetrics.collapsedHeaderHeight)
-        .animation(
-            reduceMotion ? nil : .easeInOut(duration: 0.18),
-            value: list.isCollapsed
-        )
-        .frame(height: headerHeight, alignment: .top)
         .clipped()
         .onReceive(coordinator.$renameListID) { listID in
             guard listID == list.id else { return }
