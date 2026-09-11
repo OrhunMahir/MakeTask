@@ -85,6 +85,7 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
+        window.identifier = NSUserInterfaceItemIdentifier("note.ui-test-host")
         window.title = "MakeTask UI Tests"
         window.isReleasedWhenClosed = false
         window.level = .floating

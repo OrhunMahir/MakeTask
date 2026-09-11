@@ -115,6 +115,26 @@ final class MakeTaskUITests: XCTestCase {
         XCTAssertTrue(staticText(withValue: "Another Note").waitForExistence(timeout: 2))
     }
 
+    func testDueDateControlKeysDoNotCompleteOrEditParentTask() {
+        staticText(withValue: "Alpha Task").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        let dueToggle = app.checkBoxes["task.due-toggle"]
+        XCTAssertTrue(dueToggle.waitForExistence(timeout: 2))
+        dueToggle.click()
+        let datePicker = app.datePickers["task.due-date"]
+        XCTAssertTrue(datePicker.waitForExistence(timeout: 2))
+        datePicker.click()
+        app.typeKey(.upArrow, modifierFlags: [])
+        app.typeKey(.downArrow, modifierFlags: [])
+        app.typeKey(.space, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        XCTAssertTrue(app.buttons["Complete Alpha Task"].exists)
+        XCTAssertFalse(app.buttons["Mark Alpha Task incomplete"].exists)
+        XCTAssertTrue(app.buttons["Complete Beta Task"].exists)
+        XCTAssertFalse(app.textFields["task.title-field"].exists)
+        XCTAssertTrue(dueToggle.exists)
+        XCTAssertTrue(newTaskField.exists)
+    }
+
     private var newTaskField: XCUIElement {
         app.textFields["note.new-task-field"]
     }

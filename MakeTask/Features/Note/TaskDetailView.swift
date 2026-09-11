@@ -50,6 +50,7 @@ struct TaskDetailView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Toggle("Due", isOn: hasDueDate)
+                    .accessibilityIdentifier("task.due-toggle")
                     .toggleStyle(.checkbox)
                     .font(settings.font(size: 11.5, weight: .medium))
 
@@ -59,6 +60,7 @@ struct TaskDetailView: View {
                         selection: dueDate,
                         displayedComponents: [.date, .hourAndMinute]
                     )
+                    .accessibilityIdentifier("task.due-date")
                     .labelsHidden()
                     .datePickerStyle(.field)
                     .controlSize(.small)
@@ -84,6 +86,7 @@ struct TaskDetailView: View {
                     }
 
                     TextEditor(text: $task.notes)
+                        .accessibilityIdentifier("task.notes")
                         .font(settings.font(size: 12))
                         .scrollContentBackground(.hidden)
                         .padding(2)

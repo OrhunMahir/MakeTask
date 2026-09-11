@@ -1097,94 +1097,100 @@ final class WindowCoordinator: ObservableObject {
     private func installLocalKeyMonitor() {
         guard localKeyMonitor == nil else { return }
         localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return event }
-            guard !self.isRecordingShortcut else { return event }
+            guard let self, let window = NSApp.keyWindow else { return event }
+            return self.handleLocalKeyEvent(event, in: window)
+        }
+    }
 
-            guard let action = self.settings.action(matching: event), !action.isGlobal else {
-                return event
-            }
+    func handleLocalKeyEvent(_ event: NSEvent, in window: NSWindow) -> NSEvent? {
+        guard !isRecordingShortcut else { return event }
 
-            let quickAddIsKey = self.quickAddWindow?.window?.isKeyWindow == true
-            let notePanelIsKey = !quickAddIsKey
-                && (NSApp.keyWindow is FloatingNotePanel || AppRuntime.isRunningUITests)
-            let isEditingText = NSApp.keyWindow?.firstResponder is NSTextView
-
-            switch action {
-            case .hideCurrentNote:
-                if quickAddIsKey {
-                    self.dismissQuickAdd()
-                    return nil
-                }
-                if notePanelIsKey {
-                    self.hideActiveNote()
-                    return nil
-                }
-            case .collapseCurrentNote where notePanelIsKey:
-                self.collapseActiveNote()
-                return nil
-            case .searchTasks where notePanelIsKey:
-                self.sendKeyboardCommand(.search)
-                return nil
-            case .redo where !quickAddIsKey && !isEditingText:
-                return self.redoLastAction() ? nil : event
-            case .undo where !quickAddIsKey && !isEditingText:
-                return self.undoLastAction() ? nil : event
-            case .renameCurrentList where notePanelIsKey && !isEditingText:
-                self.beginRenamingActiveList()
-                return nil
-            case .toggleCompletedTasks where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.toggleCompletedSection)
-                return nil
-            case .moveTaskToPreviousList where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.moveSelectedTaskToPreviousList)
-                return nil
-            case .moveTaskToNextList where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.moveSelectedTaskToNextList)
-                return nil
-            case .clearCompletedTasks where notePanelIsKey && !isEditingText && !event.isARepeat:
-                self.sendKeyboardCommand(.requestClearCompletedTasks)
-                return nil
-            case .deleteCurrentNote where notePanelIsKey && !event.isARepeat:
-                self.sendKeyboardCommand(.requestListDeletion)
-                return nil
-            case .deleteSelectedTask where notePanelIsKey && !isEditingText && !event.isARepeat:
-                self.sendKeyboardCommand(.deleteSelectedTask)
-                return nil
-            case .selectPreviousTask where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.selectPreviousTask)
-                return nil
-            case .selectNextTask where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.selectNextTask)
-                return nil
-            case .completeSelectedTask where notePanelIsKey && !isEditingText && !event.isARepeat:
-                self.sendKeyboardCommand(.toggleSelectedTask)
-                return nil
-            case .editSelectedTask where notePanelIsKey && !isEditingText && !event.isARepeat:
-                self.sendKeyboardCommand(.editSelectedTask)
-                return nil
-            case .moveSelectedTaskUp where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.moveSelectedTaskUp)
-                return nil
-            case .moveSelectedTaskDown where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.moveSelectedTaskDown)
-                return nil
-            case .newList where !isEditingText && !event.isARepeat:
-                _ = self.createList()
-                return nil
-            case .newTask where !isEditingText && !event.isARepeat:
-                self.focusNewTaskInActiveNote()
-                return nil
-            case let listAction where !quickAddIsKey && !isEditingText:
-                if let listIndex = listAction.listIndex {
-                    self.activateList(at: listIndex)
-                    return nil
-                }
-            default:
-                break
-            }
-
+        guard let action = settings.action(matching: event), !action.isGlobal else {
             return event
         }
+
+        guard window.attachedSheet == nil, NSApp.modalWindow == nil else { return event }
+        let quickAddIsKey = window === quickAddWindow?.window
+        if quickAddIsKey {
+            if action == .hideCurrentNote && event.modifierFlags.contains(.command) {
+                dismissQuickAdd()
+                return nil
+            }
+            return event
+        }
+        let notePanelIsKey = window is FloatingNotePanel
+            || (AppRuntime.isRunningUITests && window.identifier?.rawValue == "note.ui-test-host")
+        guard notePanelIsKey, NoteKeyboardRouting.allows(action, event: event, in: window) else {
+            return event
+        }
+
+        switch action {
+        case .hideCurrentNote:
+            hideActiveNote()
+            return nil
+        case .collapseCurrentNote:
+            collapseActiveNote()
+            return nil
+        case .searchTasks:
+            sendKeyboardCommand(.search)
+            return nil
+        case .redo:
+            return redoLastAction() ? nil : event
+        case .undo:
+            return undoLastAction() ? nil : event
+        case .renameCurrentList:
+            beginRenamingActiveList()
+            return nil
+        case .toggleCompletedTasks:
+            sendKeyboardCommand(.toggleCompletedSection)
+            return nil
+        case .moveTaskToPreviousList:
+            sendKeyboardCommand(.moveSelectedTaskToPreviousList)
+            return nil
+        case .moveTaskToNextList:
+            sendKeyboardCommand(.moveSelectedTaskToNextList)
+            return nil
+        case .clearCompletedTasks where !event.isARepeat:
+            sendKeyboardCommand(.requestClearCompletedTasks)
+            return nil
+        case .deleteCurrentNote where !event.isARepeat:
+            sendKeyboardCommand(.requestListDeletion)
+            return nil
+        case .deleteSelectedTask where !event.isARepeat:
+            sendKeyboardCommand(.deleteSelectedTask)
+            return nil
+        case .selectPreviousTask:
+            sendKeyboardCommand(.selectPreviousTask)
+            return nil
+        case .selectNextTask:
+            sendKeyboardCommand(.selectNextTask)
+            return nil
+        case .completeSelectedTask where !event.isARepeat:
+            sendKeyboardCommand(.toggleSelectedTask)
+            return nil
+        case .editSelectedTask where !event.isARepeat:
+            sendKeyboardCommand(.editSelectedTask)
+            return nil
+        case .moveSelectedTaskUp:
+            sendKeyboardCommand(.moveSelectedTaskUp)
+            return nil
+        case .moveSelectedTaskDown:
+            sendKeyboardCommand(.moveSelectedTaskDown)
+            return nil
+        case .newList where !event.isARepeat:
+            _ = createList()
+            return nil
+        case .newTask where !event.isARepeat:
+            focusNewTaskInActiveNote()
+            return nil
+        default:
+            if let listIndex = action.listIndex {
+                activateList(at: listIndex)
+                return nil
+            }
+        }
+
+        return event
     }
 
     private func registerUndoAction(
