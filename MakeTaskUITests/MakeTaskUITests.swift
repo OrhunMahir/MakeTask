@@ -174,7 +174,8 @@ final class MakeTaskUITests: XCTestCase {
         XCTAssertTrue(menu.waitForExistence(timeout: 2))
         menu.click()
 
-        let item = app.menuItems[itemTitle]
+        // The status menu can expose the same action title as the app menu.
+        let item = menu.menuItems[itemTitle]
         XCTAssertTrue(item.waitForExistence(timeout: 2))
         item.click()
     }
