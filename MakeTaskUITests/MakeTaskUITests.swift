@@ -135,6 +135,23 @@ final class MakeTaskUITests: XCTestCase {
         XCTAssertTrue(newTaskField.exists)
     }
 
+    func testSaveFailureIsVisibleFromNoteWithoutOpeningSettings() {
+        app.terminate()
+        app.launchEnvironment["MAKETASK_UI_TEST_SAVE_FAILURE"] = "1"
+        app.launch()
+        app.activate()
+        let indicator = app.buttons["runtime.issue-indicator"]
+        XCTAssertTrue(indicator.waitForExistence(timeout: 5))
+        indicator.click()
+        XCTAssertTrue(app.staticTexts["runtime.save-warning"].waitForExistence(timeout: 2))
+        let retry = app.buttons["runtime.retry-save"]
+        XCTAssertTrue(retry.exists)
+        retry.click()
+        XCTAssertTrue(app.staticTexts["runtime.save-warning"].exists,
+                      "An unsuccessful retry must keep the save failure visible.")
+        XCTAssertTrue(newTaskField.exists)
+    }
+
     private var newTaskField: XCUIElement {
         app.textFields["note.new-task-field"]
     }

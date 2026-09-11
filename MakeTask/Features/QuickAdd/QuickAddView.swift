@@ -41,9 +41,12 @@ struct QuickAddView: View {
                 Text(isListCreationMode ? "New List" : "Add Task")
                     .font(settings.font(size: 19, weight: .bold))
                 Spacer()
-                Text(settings.quickAddShortcutDescription)
-                    .font(settings.font(size: 11, weight: .medium))
-                    .foregroundStyle(.tertiary)
+                RuntimeIssueIndicator()
+                if let shortcut = coordinator.globalShortcutDescription(for: .quickAdd) {
+                    Text(shortcut)
+                        .font(settings.font(size: 11, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                }
             }
 
             if isListCreationMode {

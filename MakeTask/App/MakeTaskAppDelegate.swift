@@ -12,9 +12,20 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
     lazy var windowCoordinator = WindowCoordinator(
         modelContainer: modelContainer,
         settings: settings,
-        launchAtLogin: launchAtLogin
+        launchAtLogin: launchAtLogin,
+        saveChanges: simulatedSaveFailure
     )
     lazy var localBackup = LocalBackupService(coordinator: windowCoordinator)
+
+    private var simulatedSaveFailure: ((ModelContext) throws -> Void)? {
+        #if DEBUG
+        if AppRuntime.isRunningUITests,
+           ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_SAVE_FAILURE"] == "1" {
+            return { _ in throw CocoaError(.fileWriteNoPermission) }
+        }
+        #endif
+        return nil
+    }
 
     override init() {
         do {

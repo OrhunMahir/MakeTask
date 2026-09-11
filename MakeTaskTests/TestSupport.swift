@@ -10,7 +10,10 @@ struct TestEnvironment {
     let defaults: UserDefaults
     let defaultsSuiteName: String
 
-    init() throws {
+    init(
+        saveChanges: ((ModelContext) throws -> Void)? = nil,
+        makeHotKeyService: ((UInt32) throws -> any GlobalHotKeyRegistering)? = nil
+    ) throws {
         let suiteName = "dev.orhun.MakeTaskTests.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             fatalError("Could not create isolated test defaults")
@@ -24,7 +27,9 @@ struct TestEnvironment {
         self.coordinator = WindowCoordinator(
             modelContainer: container,
             settings: settings,
-            launchAtLogin: LaunchAtLoginService()
+            launchAtLogin: LaunchAtLoginService(),
+            saveChanges: saveChanges,
+            makeHotKeyService: makeHotKeyService
         )
         self.defaults = defaults
         self.defaultsSuiteName = suiteName

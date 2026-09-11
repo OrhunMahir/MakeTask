@@ -1,7 +1,13 @@
 import Carbon.HIToolbox
 import Foundation
 
-final class GlobalHotKeyService {
+protocol GlobalHotKeyRegistering: AnyObject {
+    var onPressed: (() -> Void)? { get set }
+    func register(keyCode: UInt32, modifiers: UInt32) throws
+    func unregister()
+}
+
+final class GlobalHotKeyService: GlobalHotKeyRegistering {
     enum HotKeyError: LocalizedError {
         case handlerInstallationFailed(OSStatus)
         case registrationFailed(OSStatus)

@@ -12,7 +12,8 @@ struct MakeTaskApp: App {
                 .environmentObject(appDelegate.settings)
                 .environmentObject(appDelegate.launchAtLogin)
         } label: {
-            Label("MakeTask", systemImage: "checklist")
+            MakeTaskStatusLabel()
+                .environmentObject(appDelegate.windowCoordinator)
         }
         .menuBarExtraStyle(.menu)
 

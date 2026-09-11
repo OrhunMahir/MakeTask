@@ -8,11 +8,38 @@ struct MenuBarView: View {
     @EnvironmentObject private var coordinator: WindowCoordinator
     @EnvironmentObject private var settings: AppSettings
 
+    private func globalActionTitle(_ title: String, action: AppShortcutAction) -> String {
+        guard let shortcut = coordinator.globalShortcutDescription(for: action) else { return title }
+        return "\(title) — \(shortcut)"
+    }
+
     var body: some View {
+        if coordinator.hasRuntimeIssues {
+            Menu("MakeTask needs attention") {
+                if coordinator.persistenceError != nil {
+                    Text("Changes haven’t been saved")
+                    Button("Retry Saving") { coordinator.saveContext() }
+                }
+                if !coordinator.globalShortcutErrors.isEmpty {
+                    ForEach([AppShortcutAction.quickAdd, .toggleAllNotesVisibility], id: \.self) { action in
+                        if coordinator.globalShortcutErrors[action] != nil {
+                            Text("\(action.title): Shortcut unavailable")
+                        }
+                    }
+                    Button("Retry Shortcuts") { _ = coordinator.reloadGlobalShortcuts() }
+                    Button("Shortcut Settings…") {
+                        settings.selectedSettingsTab = .shortcuts
+                        openSettings()
+                    }
+                }
+            }
+            Divider()
+        }
+
         Button {
             coordinator.presentQuickAdd()
         } label: {
-            Label("Quick Add — \(settings.quickAddShortcutDescription)", systemImage: "bolt.fill")
+            Label(globalActionTitle("Quick Add", action: .quickAdd), systemImage: "bolt.fill")
         }
 
         Divider()
@@ -85,7 +112,8 @@ struct MenuBarView: View {
                 coordinator.toggleAllNotesVisibility()
             } label: {
                 Label(
-                    "\(lists.allSatisfy { !$0.isHidden } ? "Hide All Notes" : "Show All Notes") — \(settings.shortcutDescription(for: .toggleAllNotesVisibility))",
+                    globalActionTitle(lists.allSatisfy { !$0.isHidden } ? "Hide All Notes" : "Show All Notes",
+                                      action: .toggleAllNotesVisibility),
                     systemImage: lists.allSatisfy { !$0.isHidden } ? "eye.slash" : "eye"
                 )
             }

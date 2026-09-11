@@ -47,12 +47,20 @@ final class WindowCoordinator: ObservableObject {
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
     @Published var errorMessage: String?
+    @Published private(set) var persistenceError: String?
+    @Published private(set) var globalShortcutErrors: [AppShortcutAction: String] = [:]
+    @Published private(set) var registeredGlobalShortcuts: [AppShortcutAction: AppShortcut] = [:]
+
+    var hasRuntimeIssues: Bool { persistenceError != nil || !globalShortcutErrors.isEmpty }
 
     private let context: ModelContext
     private var noteWindows: [UUID: NoteWindowController] = [:]
     private var quickAddWindow: QuickAddWindowController?
-    private var quickAddHotKeyService: GlobalHotKeyService?
-    private var visibilityHotKeyService: GlobalHotKeyService?
+    private var quickAddHotKeyService: (any GlobalHotKeyRegistering)?
+    private var visibilityHotKeyService: (any GlobalHotKeyRegistering)?
+    private let makeHotKeyService: (UInt32) throws -> any GlobalHotKeyRegistering
+    private let saveChanges: (ModelContext) throws -> Void
+    private var globalShortcutsEnabled = false
     private var localKeyMonitor: Any?
     private var isRecordingShortcut = false
     private var taskDragSnapshot: [TaskPositionSnapshot]?
@@ -164,35 +172,23 @@ final class WindowCoordinator: ObservableObject {
     init(
         modelContainer: ModelContainer,
         settings: AppSettings,
-        launchAtLogin: LaunchAtLoginService
+        launchAtLogin: LaunchAtLoginService,
+        saveChanges: ((ModelContext) throws -> Void)? = nil,
+        makeHotKeyService: ((UInt32) throws -> any GlobalHotKeyRegistering)? = nil
     ) {
         self.modelContainer = modelContainer
         self.context = modelContainer.mainContext
         self.settings = settings
         self.launchAtLogin = launchAtLogin
+        self.saveChanges = saveChanges ?? { try $0.save() }
+        self.makeHotKeyService = makeHotKeyService ?? { try GlobalHotKeyService(identifier: $0) }
     }
 
     func start(registerGlobalShortcuts: Bool = true) {
         migrateLegacyWindowDefaultsIfNeeded()
 
-        if registerGlobalShortcuts {
-            do {
-                let quickAddService = try GlobalHotKeyService(identifier: 1)
-                quickAddService.onPressed = { [weak self] in
-                    self?.presentQuickAdd()
-                }
-                quickAddHotKeyService = quickAddService
-
-                let visibilityService = try GlobalHotKeyService(identifier: 2)
-                visibilityService.onPressed = { [weak self] in
-                    self?.toggleAllNotesVisibility()
-                }
-                visibilityHotKeyService = visibilityService
-                _ = reloadGlobalShortcuts()
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-        }
+        globalShortcutsEnabled = registerGlobalShortcuts
+        if registerGlobalShortcuts { _ = reloadGlobalShortcuts() }
 
         installLocalKeyMonitor()
         restoreVisibleNotes()
@@ -202,6 +198,7 @@ final class WindowCoordinator: ObservableObject {
     func stop() {
         quickAddHotKeyService?.unregister()
         visibilityHotKeyService?.unregister()
+        registeredGlobalShortcuts = [:]
         dueDateRefreshWorkItem?.cancel()
         dueDateRefreshWorkItem = nil
         if let localKeyMonitor {
@@ -277,6 +274,9 @@ final class WindowCoordinator: ObservableObject {
     }
 
     private func deleteListWithoutRegisteringUndo(_ list: TodoList) {
+        let wasActive = activeListID == list.id
+        let wasKey = noteWindows[list.id]?.window?.isKeyWindow == true
+        list.isHidden = true
         noteWindows[list.id]?.hide()
         noteWindows[list.id] = nil
 
@@ -291,6 +291,7 @@ final class WindowCoordinator: ObservableObject {
         }
 
         context.delete(list)
+        reconcileActiveList(excluding: list.id, selectFirst: wasActive, makeKey: wasKey)
         scheduleNextDueDateRefresh()
         saveContext()
     }
@@ -340,6 +341,7 @@ final class WindowCoordinator: ObservableObject {
             noteWindows[list.id] = controller
             controller.show()
         }
+        reconcileActiveList()
         saveContext()
     }
 
@@ -349,8 +351,11 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func hide(_ list: TodoList) {
+        let wasActive = activeListID == list.id
+        let wasKey = noteWindows[list.id]?.window?.isKeyWindow == true
         list.isHidden = true
         noteWindows[list.id]?.hide()
+        reconcileActiveList(selectFirst: wasActive, makeKey: wasKey)
         saveContext()
     }
 
@@ -367,7 +372,13 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func hideAll() {
-        fetchLists().forEach(hide)
+        let lists = fetchLists()
+        // Mark the whole batch first so key-window callbacks cannot select a
+        // note that is about to be hidden.
+        lists.forEach { $0.isHidden = true }
+        lists.forEach { noteWindows[$0.id]?.hide() }
+        reconcileActiveList()
+        saveContext()
     }
 
     func toggleAllNotesVisibility() {
@@ -378,7 +389,7 @@ final class WindowCoordinator: ObservableObject {
         }
 
         if lists.allSatisfy({ !$0.isHidden }) {
-            lists.forEach(hide)
+            hideAll()
         } else {
             lists.forEach(show)
             if let firstList = lists.first {
@@ -407,6 +418,7 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func noteDidBecomeActive(_ list: TodoList) {
+        guard !list.isHidden else { return }
         activeListID = list.id
     }
 
@@ -849,42 +861,56 @@ final class WindowCoordinator: ObservableObject {
         controller?.dismiss()
     }
 
+    func globalShortcutDescription(for action: AppShortcutAction) -> String? {
+        registeredGlobalShortcuts[action]?.displayString
+    }
+
     @discardableResult
     func reloadGlobalShortcuts() -> String? {
+        guard globalShortcutsEnabled, !isRecordingShortcut else { return nil }
         quickAddHotKeyService?.unregister()
         visibilityHotKeyService?.unregister()
+        var registrations: [AppShortcutAction: AppShortcut] = [:]
+        var failures: [AppShortcutAction: String] = [:]
+        let actions: [AppShortcutAction] = [.quickAdd, .toggleAllNotesVisibility]
 
-        let registrations: [(AppShortcutAction, GlobalHotKeyService?)] = [
-            (.quickAdd, quickAddHotKeyService),
-            (.toggleAllNotesVisibility, visibilityHotKeyService)
-        ]
-
-        var firstError: String?
-        for (action, service) in registrations {
+        for action in actions {
             let shortcut = settings.shortcut(for: action)
             guard !shortcut.modifiers.isEmpty else {
-                let message = "\(action.title) needs at least one modifier key."
-                firstError = firstError ?? message
+                failures[action] = "This shortcut needs at least one modifier key."
                 continue
             }
-
             do {
-                try service?.register(
-                    keyCode: UInt32(shortcut.keyCode),
-                    modifiers: shortcut.modifiers.carbonValue
-                )
+                let service: any GlobalHotKeyRegistering
+                if action == .quickAdd {
+                    if quickAddHotKeyService == nil {
+                        quickAddHotKeyService = try makeHotKeyService(1)
+                        quickAddHotKeyService?.onPressed = { [weak self] in self?.presentQuickAdd() }
+                    }
+                    guard let quickAddHotKeyService else { continue }
+                    service = quickAddHotKeyService
+                } else {
+                    if visibilityHotKeyService == nil {
+                        visibilityHotKeyService = try makeHotKeyService(2)
+                        visibilityHotKeyService?.onPressed = { [weak self] in self?.toggleAllNotesVisibility() }
+                    }
+                    guard let visibilityHotKeyService else { continue }
+                    service = visibilityHotKeyService
+                }
+                try service.register(keyCode: UInt32(shortcut.keyCode), modifiers: shortcut.modifiers.carbonValue)
+                registrations[action] = shortcut
             } catch {
-                let message = "\(action.title): \(error.localizedDescription)"
-                firstError = firstError ?? message
+                failures[action] = error.localizedDescription
             }
         }
-
-        errorMessage = firstError
-        return firstError
+        registeredGlobalShortcuts = registrations
+        globalShortcutErrors = failures
+        return actions.compactMap { action in failures[action].map { "\(action.title): \($0)" } }.first
     }
 
     func beginShortcutRecording() {
         isRecordingShortcut = true
+        registeredGlobalShortcuts = [:]
         quickAddHotKeyService?.unregister()
         visibilityHotKeyService?.unregister()
     }
@@ -896,18 +922,24 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func saveContext() {
-        guard context.hasChanges else { return }
+        // The persistent issue is intentionally independent of dismissible
+        // Settings alerts and of global shortcut registration errors.
+        try? persistChanges()
+    }
+
+    private func persistChanges() throws {
+        guard context.hasChanges || persistenceError != nil else { return }
         do {
-            try context.save()
+            try saveChanges(context)
+            persistenceError = nil
         } catch {
-            errorMessage = error.localizedDescription
+            persistenceError = error.localizedDescription
+            throw error
         }
     }
 
     func makeBackupDocument() throws -> MakeTaskBackupDocument {
-        if context.hasChanges {
-            try context.save()
-        }
+        try persistChanges()
         let appVersion = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String ?? "unknown"
@@ -931,9 +963,7 @@ final class WindowCoordinator: ObservableObject {
         _ document: MakeTaskBackupDocument
     ) throws -> MakeTaskBackupImportResult {
         try document.validate()
-        if context.hasChanges {
-            try context.save()
-        }
+        try persistChanges()
 
         let existingLists = try context.fetch(
             FetchDescriptor<TodoList>(sortBy: [SortDescriptor(\TodoList.sortOrder)])
@@ -1090,8 +1120,29 @@ final class WindowCoordinator: ObservableObject {
     }
 
     private func activeList() -> TodoList? {
+        reconcileActiveList()
         guard let activeListID else { return nil }
-        return fetchLists().first { $0.id == activeListID }
+        return fetchLists().first { $0.id == activeListID && !$0.isHidden }
+    }
+
+    private func reconcileActiveList(
+        excluding excludedID: UUID? = nil,
+        selectFirst: Bool = false,
+        makeKey: Bool = false
+    ) {
+        let visibleLists = fetchLists().filter { !$0.isHidden && $0.id != excludedID }.sorted {
+            if $0.sortOrder != $1.sortOrder { return $0.sortOrder < $1.sortOrder }
+            if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+        if selectFirst || !visibleLists.contains(where: { $0.id == activeListID }) {
+            activeListID = visibleLists.first?.id
+        }
+        // Only transfer keyboard focus if the removed note owned it. Deleting
+        // a list from Quick Add must leave Quick Add focused.
+        if makeKey, let activeListID {
+            noteWindows[activeListID]?.window?.makeKey()
+        }
     }
 
     private func installLocalKeyMonitor() {

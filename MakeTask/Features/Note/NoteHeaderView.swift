@@ -85,6 +85,8 @@ struct NoteHeaderView: View {
                     }
             }
 
+            RuntimeIssueIndicator()
+
             Menu {
                 Button("Rename") {
                     beginRename()
