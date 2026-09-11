@@ -12,6 +12,9 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
     private var pendingSave: DispatchWorkItem?
     private var appearanceSubscriptions: Set<AnyCancellable> = []
     private var isChangingCollapseState = false
+    private var isFittingToScreen = false
+    private let visibleScreenFrames: @MainActor () -> [NSRect]
+    private var pendingScreenFrames: [NSRect]?
     let presentation: NoteCollapsePresentation
     private let animationDriver: any NoteCollapseAnimationDriving
     private let reduceMotion: () -> Bool
@@ -25,7 +28,8 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
         coordinator: WindowCoordinator,
         settings: AppSettings,
         animationDriver: (any NoteCollapseAnimationDriving)? = nil,
-        reduceMotion: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+        reduceMotion: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
+        visibleScreenFrames: @escaping @MainActor () -> [NSRect] = { NoteScreenGeometry.currentVisibleFrames }
     ) {
         self.list = list
         self.coordinator = coordinator
@@ -34,6 +38,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
         self.requestedCollapsed = list.isCollapsed
         self.animationDriver = animationDriver ?? NoteCollapseAnimationDriver()
         self.reduceMotion = reduceMotion
+        self.visibleScreenFrames = visibleScreenFrames
 
         let panel = FloatingNotePanel(
             contentRect: frame,
@@ -82,7 +87,36 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func show() {
+        fitToScreens(visibleScreenFrames(), persist: false)
         window?.orderFrontRegardless()
+    }
+
+    func fitToScreens(_ screens: [NSRect], persist: Bool = true) {
+        guard let panel = window,
+              let placement = NoteScreenGeometry.fit(panel.frame, to: screens) else { return }
+        if isChangingCollapseState {
+            // The caller may save the other notes now; this note must be saved
+            // after its deferred placement has actually been applied.
+            pendingScreenFrames = screens
+            return
+        }
+        isFittingToScreen = true
+        pendingSave?.cancel()
+        pendingSave = nil
+        panel.minSize.width = min(NoteWindowMetrics.minimumWidth, placement.visibleFrame.width)
+        if panel.frame != placement.frame {
+            panel.setFrame(placement.frame, display: panel.isVisible)
+            panel.contentView?.layoutSubtreeIfNeeded()
+        }
+        rememberCurrentFrame()
+        if list.isCollapsed {
+            if list.windowWidth != panel.frame.width { list.windowWidth = panel.frame.width }
+            let expandedHeight = min(max(list.windowHeight, NoteWindowMetrics.headerHeight + 120),
+                                     placement.visibleFrame.height)
+            if list.windowHeight != expandedHeight { list.windowHeight = expandedHeight }
+        }
+        isFittingToScreen = false
+        if persist { coordinator.saveContext() }
     }
 
     func hide() {
@@ -133,8 +167,8 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
             queuedRequest = (collapsed, animated, persist)
             return
         }
-        let currentFrame = panel.frame
-        let targetHeight = collapsed
+        var currentFrame = panel.frame
+        var targetHeight = collapsed
             ? NoteWindowMetrics.collapsedHeaderHeight
             : max(list.windowHeight, NoteWindowMetrics.headerHeight + 120)
         if list.isCollapsed == collapsed && currentFrame.height == targetHeight {
@@ -148,10 +182,21 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
         presentation.phase = collapsed ? .collapsing : .expanding
         panel.styleMask.remove(.resizable)
         // In particular, do not raise this while expansion still starts at 34 pt.
-        panel.minSize = NSSize(
-            width: NoteWindowMetrics.minimumWidth,
-            height: NoteWindowMetrics.collapsedHeaderHeight
-        )
+        panel.minSize.height = NoteWindowMetrics.collapsedHeaderHeight
+        if !collapsed {
+            let expanded = NSRect(x: currentFrame.minX, y: currentFrame.maxY - targetHeight,
+                                  width: currentFrame.width, height: targetHeight)
+            if let placement = NoteScreenGeometry.fit(expanded, to: visibleScreenFrames()) {
+                targetHeight = placement.frame.height
+                // A collapsed note may have been moved near the bottom edge.
+                // Establish a reachable expansion anchor before the animation.
+                currentFrame = NSRect(x: placement.frame.minX,
+                                      y: placement.frame.maxY - currentFrame.height,
+                                      width: placement.frame.width, height: currentFrame.height)
+                panel.minSize.width = min(NoteWindowMetrics.minimumWidth, placement.visibleFrame.width)
+                panel.setFrame(currentFrame, display: panel.isVisible)
+            }
+        }
         panel.contentView?.layoutSubtreeIfNeeded()
 
         let update: (CGFloat) -> Void = { [weak panel] progress in
@@ -176,18 +221,25 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
                 ? NoteWindowMetrics.collapsedHeaderHeight : NoteWindowMetrics.headerHeight
             panel.contentView?.layoutSubtreeIfNeeded()
             self.isChangingCollapseState = false
+            // A display change must not compete with the animation's captured
+            // frame. Apply the latest layout before starting a queued toggle.
+            let shouldPersist = persist || self.pendingScreenFrames != nil
+            if let screens = self.pendingScreenFrames {
+                self.pendingScreenFrames = nil
+                self.fitToScreens(screens, persist: false)
+            }
             if let request = self.queuedRequest {
                 self.queuedRequest = nil
                 if request.collapsed != collapsed {
                     self.setCollapsed(request.collapsed, animated: request.animated,
-                                      persist: persist || request.persist)
+                                      persist: shouldPersist || request.persist)
                     return
                 }
                 self.rememberCurrentFrame()
-                if persist || request.persist { self.coordinator.saveContext() }
+                if shouldPersist || request.persist { self.coordinator.saveContext() }
             } else {
                 self.rememberCurrentFrame()
-                if persist { self.coordinator.saveContext() }
+                if shouldPersist { self.coordinator.saveContext() }
             }
         }
         if animated && !reduceMotion() {
@@ -202,19 +254,19 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowDidMove(_ notification: Notification) {
-        guard !isChangingCollapseState else { return }
+        guard !isChangingCollapseState && !isFittingToScreen else { return }
         rememberCurrentFrame()
         scheduleSave()
     }
 
     func windowDidResize(_ notification: Notification) {
-        guard !isChangingCollapseState else { return }
+        guard !isChangingCollapseState && !isFittingToScreen else { return }
         rememberCurrentFrame()
         scheduleSave()
     }
 
     func windowDidEndLiveResize(_ notification: Notification) {
-        guard !isChangingCollapseState else { return }
+        guard !isChangingCollapseState && !isFittingToScreen else { return }
         rememberCurrentFrame()
         pendingSave?.cancel()
         coordinator.saveContext()
@@ -222,11 +274,11 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
 
     private func rememberCurrentFrame() {
         guard let frame = window?.frame else { return }
-        list.windowX = frame.minX
-        list.windowTop = frame.maxY
+        if list.windowX != frame.minX { list.windowX = frame.minX }
+        if list.windowTop != frame.maxY { list.windowTop = frame.maxY }
         if !list.isCollapsed && !isChangingCollapseState {
-            list.windowWidth = frame.width
-            list.windowHeight = frame.height
+            if list.windowWidth != frame.width { list.windowWidth = frame.width }
+            if list.windowHeight != frame.height { list.windowHeight = frame.height }
         }
     }
 

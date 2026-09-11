@@ -48,7 +48,8 @@ final class NoteWindowControllerTests: XCTestCase {
                 modelContainer: environment.container, coordinator: environment.coordinator,
                 settings: environment.settings,
                 animationDriver: realClock ? NoteCollapseAnimationDriver() : clock,
-                reduceMotion: { reduceMotion }
+                reduceMotion: { reduceMotion },
+                visibleScreenFrames: { [NSRect(x: 0, y: 0, width: 1440, height: 900)] }
             )
             controller.show()
             panel.contentView?.layoutSubtreeIfNeeded()

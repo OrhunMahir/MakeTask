@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import SwiftData
 @testable import MakeTask
 
@@ -12,7 +12,8 @@ struct TestEnvironment {
 
     init(
         saveChanges: ((ModelContext) throws -> Void)? = nil,
-        makeHotKeyService: ((UInt32) throws -> any GlobalHotKeyRegistering)? = nil
+        makeHotKeyService: ((UInt32) throws -> any GlobalHotKeyRegistering)? = nil,
+        visibleScreenFrames: @escaping @MainActor () -> [NSRect] = { NoteScreenGeometry.currentVisibleFrames }
     ) throws {
         let suiteName = "dev.orhun.MakeTaskTests.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -29,7 +30,8 @@ struct TestEnvironment {
             settings: settings,
             launchAtLogin: LaunchAtLoginService(),
             saveChanges: saveChanges,
-            makeHotKeyService: makeHotKeyService
+            makeHotKeyService: makeHotKeyService,
+            visibleScreenFrames: visibleScreenFrames
         )
         self.defaults = defaults
         self.defaultsSuiteName = suiteName

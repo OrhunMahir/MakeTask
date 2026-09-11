@@ -62,6 +62,8 @@ final class WindowCoordinator: ObservableObject {
     private let saveChanges: (ModelContext) throws -> Void
     private var globalShortcutsEnabled = false
     private var localKeyMonitor: Any?
+    private var screenSubscription: AnyCancellable?
+    private let visibleScreenFrames: @MainActor () -> [NSRect]
     private var isRecordingShortcut = false
     private var taskDragSnapshot: [TaskPositionSnapshot]?
     private var taskDragCurrentPositions: [UUID: TaskPositionSnapshot]?
@@ -174,12 +176,14 @@ final class WindowCoordinator: ObservableObject {
         settings: AppSettings,
         launchAtLogin: LaunchAtLoginService,
         saveChanges: ((ModelContext) throws -> Void)? = nil,
-        makeHotKeyService: ((UInt32) throws -> any GlobalHotKeyRegistering)? = nil
+        makeHotKeyService: ((UInt32) throws -> any GlobalHotKeyRegistering)? = nil,
+        visibleScreenFrames: @escaping @MainActor () -> [NSRect] = { NoteScreenGeometry.currentVisibleFrames }
     ) {
         self.modelContainer = modelContainer
         self.context = modelContainer.mainContext
         self.settings = settings
         self.launchAtLogin = launchAtLogin
+        self.visibleScreenFrames = visibleScreenFrames
         self.saveChanges = saveChanges ?? { try $0.save() }
         self.makeHotKeyService = makeHotKeyService ?? { try GlobalHotKeyService(identifier: $0) }
     }
@@ -191,11 +195,19 @@ final class WindowCoordinator: ObservableObject {
         if registerGlobalShortcuts { _ = reloadGlobalShortcuts() }
 
         installLocalKeyMonitor()
+        if screenSubscription == nil {
+            screenSubscription = NotificationCenter.default
+                .publisher(for: NSApplication.didChangeScreenParametersNotification)
+                .receive(on: RunLoop.main)
+                .sink { [weak self] _ in self?.refitNoteWindows() }
+        }
         restoreVisibleNotes()
         scheduleNextDueDateRefresh()
     }
 
     func stop() {
+        screenSubscription?.cancel()
+        screenSubscription = nil
         quickAddHotKeyService?.unregister()
         visibilityHotKeyService?.unregister()
         registeredGlobalShortcuts = [:]
@@ -336,7 +348,8 @@ final class WindowCoordinator: ObservableObject {
                 frame: restoredFrame(for: list),
                 modelContainer: modelContainer,
                 coordinator: self,
-                settings: settings
+                settings: settings,
+                visibleScreenFrames: visibleScreenFrames
             )
             noteWindows[list.id] = controller
             controller.show()
@@ -1435,25 +1448,27 @@ final class WindowCoordinator: ObservableObject {
         defaults.set(true, forKey: migrationKey)
     }
 
-    private func restoredFrame(for list: TodoList) -> NSRect {
-        let width = max(list.windowWidth, NoteWindowMetrics.minimumWidth)
-        let height = max(list.windowHeight, NoteWindowMetrics.headerHeight + 120)
-
-        if let x = list.windowX, let top = list.windowTop {
-            let candidate = NSRect(x: x, y: top - height, width: width, height: height)
-            if NSScreen.screens.contains(where: { $0.visibleFrame.intersects(candidate) }) {
-                return candidate
-            }
+    private func refitNoteWindows() {
+        let screens = visibleScreenFrames()
+        for controller in noteWindows.values {
+            controller.fitToScreens(screens, persist: false)
         }
+        saveContext()
+    }
 
-        let screen = NSScreen.main ?? NSScreen.screens.first
-        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+    private func restoredFrame(for list: TodoList) -> NSRect {
+        let screens = visibleScreenFrames()
+        let width = max(list.windowWidth, NoteWindowMetrics.minimumWidth)
+        let height = list.isCollapsed ? NoteWindowMetrics.collapsedHeaderHeight
+            : max(list.windowHeight, NoteWindowMetrics.headerHeight + 120)
+        let visible = screens.first ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let cascade = CGFloat(noteWindows.count % 8) * 24
-        return NSRect(
-            x: visible.maxX - width - 24 - cascade,
-            y: visible.maxY - height - 24 - cascade,
+        let candidate = NSRect(
+            x: list.windowX ?? (visible.maxX - width - 24 - cascade),
+            y: (list.windowTop ?? (visible.maxY - 24 - cascade)) - height,
             width: width,
             height: height
         )
+        return NoteScreenGeometry.fit(candidate, to: screens)?.frame ?? candidate
     }
 }
