@@ -6,7 +6,29 @@ import XCTest
 @MainActor
 final class NoteScreenRecoveryTests: XCTestCase {
     private final class ScreenLayout {
-        var frames = [NSRect(x: 0, y: 40, width: 1200, height: 760)]
+        let initial: NSRect
+        var frames: [NSRect]
+
+        init() throws {
+            // Injecting screen geometry does not replace AppKit's real screen.
+            // Keep native panels inside it so AppKit cannot independently move
+            // them (the CI runner has less usable height than a local display).
+            let screen = try XCTUnwrap(NSScreen.main ?? NSScreen.screens.first)
+            let available = screen.visibleFrame.insetBy(dx: 20, dy: 20)
+            initial = NSRect(x: available.minX, y: available.minY,
+                             width: min(available.width, 1000), height: min(available.height, 600))
+            frames = [initial]
+        }
+
+        var expandedNote: NSRect {
+            NSRect(x: initial.maxX - 340, y: initial.minY + 20,
+                   width: 320, height: initial.height - 40)
+        }
+
+        var reduced: NSRect {
+            NSRect(x: initial.minX, y: initial.minY + 20,
+                   width: floor(initial.width * 0.6), height: floor(initial.height * 0.6))
+        }
     }
 
     private final class ManualClock: NoteCollapseAnimationDriving {
@@ -49,54 +71,58 @@ final class NoteScreenRecoveryTests: XCTestCase {
     }
 
     func testRestorationRecoversDisconnectedMonitorAndOversizedSavedWindow() throws {
-        let layout = ScreenLayout()
+        let layout = try ScreenLayout()
         let environment = try TestEnvironment(visibleScreenFrames: { layout.frames })
         defer { environment.coordinator.hideAll(); environment.cleanUp() }
-        let list = TodoList(title: "External display", windowX: 2500, windowTop: 1600,
-                            windowWidth: 2000, windowHeight: 1400)
+        let list = TodoList(title: "External display",
+                            windowX: layout.initial.maxX + 1000, windowTop: layout.initial.maxY + 800,
+                            windowWidth: layout.initial.width + 800, windowHeight: layout.initial.height + 600)
         environment.container.mainContext.insert(list)
         environment.coordinator.show(list)
         let panel = try XCTUnwrap(controller(for: list).window)
         XCTAssertTrue(panel is FloatingNotePanel)
         XCTAssertEqual(panel.frame, layout.frames[0])
-        XCTAssertEqual(list.windowWidth, 1200)
-        XCTAssertEqual(list.windowHeight, 760)
+        XCTAssertEqual(list.windowWidth, layout.initial.width)
+        XCTAssertEqual(list.windowHeight, layout.initial.height)
         try assertSaved(list, in: environment)
     }
 
     func testCollapsedRestorationKeepsHeaderPositionAndExpansionFitsAboveDock() throws {
-        let layout = ScreenLayout()
+        let layout = try ScreenLayout()
         let environment = try TestEnvironment(visibleScreenFrames: { layout.frames })
         defer { environment.coordinator.hideAll(); environment.cleanUp() }
-        let list = TodoList(title: "Rolled up", windowX: 200, windowTop: 100,
-                            windowWidth: 320, windowHeight: 1200, isCollapsed: true)
+        let top = layout.initial.minY + 60
+        let list = TodoList(title: "Rolled up", windowX: layout.expandedNote.minX, windowTop: top,
+                            windowWidth: 320, windowHeight: layout.initial.height + 400, isCollapsed: true)
         environment.container.mainContext.insert(list)
         environment.coordinator.show(list)
         let controller = try controller(for: list)
         let panel = try XCTUnwrap(controller.window)
-        XCTAssertEqual(panel.frame.maxY, 100)
+        XCTAssertEqual(panel.frame.maxY, top)
         XCTAssertEqual(panel.frame.height, 34)
         XCTAssertTrue(list.isCollapsed)
-        XCTAssertEqual(list.windowHeight, 760)
+        XCTAssertEqual(list.windowHeight, layout.initial.height)
         controller.setCollapsed(false, animated: false)
         XCTAssertTrue(layout.frames[0].contains(panel.frame))
         XCTAssertEqual(panel.frame.width, 320)
-        XCTAssertEqual(panel.frame.height, 760)
+        XCTAssertEqual(panel.frame.height, layout.initial.height)
         XCTAssertFalse(list.isCollapsed)
         try assertSaved(list, in: environment)
     }
 
     func testDisplayNotificationRecoversVisibleAndHiddenPanelsWithoutChangingSelection() async throws {
-        let layout = ScreenLayout()
+        let layout = try ScreenLayout()
         let environment = try TestEnvironment(visibleScreenFrames: { layout.frames })
         defer {
             environment.coordinator.stop()
             environment.coordinator.hideAll()
             environment.cleanUp()
         }
-        let visible = TodoList(title: "Visible", windowX: 850, windowTop: 780)
-        let hidden = TodoList(title: "Hidden", sortOrder: 1, windowX: 800, windowTop: 750,
-                              windowWidth: 400, windowHeight: 700, isCollapsed: true)
+        let visible = TodoList(title: "Visible", windowX: layout.expandedNote.minX,
+                               windowTop: layout.expandedNote.maxY)
+        let hidden = TodoList(title: "Hidden", sortOrder: 1, windowX: layout.initial.maxX - 420,
+                              windowTop: layout.expandedNote.maxY, windowWidth: 400,
+                              windowHeight: layout.expandedNote.height, isCollapsed: true)
         environment.container.mainContext.insert(visible)
         environment.container.mainContext.insert(hidden)
         environment.coordinator.start(registerGlobalShortcuts: false)
@@ -104,7 +130,7 @@ final class NoteScreenRecoveryTests: XCTestCase {
         let hiddenPanel = try XCTUnwrap(controller(for: hidden).window)
         environment.coordinator.hide(hidden)
         environment.coordinator.noteDidBecomeActive(visible)
-        layout.frames = [NSRect(x: 0, y: 60, width: 640, height: 420)]
+        layout.frames = [layout.reduced]
         NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: NSApp)
         try await Task.sleep(for: .milliseconds(80))
         XCTAssertTrue(layout.frames[0].contains(visiblePanel.frame))
@@ -114,29 +140,31 @@ final class NoteScreenRecoveryTests: XCTestCase {
         XCTAssertTrue(hidden.isHidden)
         XCTAssertTrue(hidden.isCollapsed)
         XCTAssertEqual(hiddenPanel.frame.height, 34)
-        XCTAssertEqual(hidden.windowHeight, 420)
+        XCTAssertEqual(hidden.windowHeight, layout.reduced.height)
         XCTAssertEqual(environment.coordinator.activeListID, visible.id)
         try assertSaved(visible, in: environment)
         try assertSaved(hidden, in: environment)
 
         environment.coordinator.stop()
         let stoppedFrame = visiblePanel.frame
-        layout.frames = [NSRect(x: -700, y: 60, width: 640, height: 420)]
+        layout.frames = [layout.reduced.offsetBy(dx: layout.initial.width - layout.reduced.width,
+                                                 dy: layout.initial.height - layout.reduced.height - 20)]
         NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: NSApp)
         try await Task.sleep(for: .milliseconds(80))
         XCTAssertEqual(visiblePanel.frame, stoppedFrame)
     }
 
     func testRevealingCachedHiddenPanelUsesCurrentScreens() throws {
-        let layout = ScreenLayout()
+        let layout = try ScreenLayout()
         let environment = try TestEnvironment(visibleScreenFrames: { layout.frames })
         defer { environment.coordinator.hideAll(); environment.cleanUp() }
-        let list = TodoList(title: "Cached", windowX: 800, windowTop: 780)
+        let list = TodoList(title: "Cached", windowX: layout.expandedNote.minX,
+                            windowTop: layout.expandedNote.maxY)
         environment.container.mainContext.insert(list)
         environment.coordinator.show(list)
         let original = try controller(for: list)
         environment.coordinator.hide(list)
-        layout.frames = [NSRect(x: 0, y: 40, width: 600, height: 400)]
+        layout.frames = [layout.reduced]
         environment.coordinator.show(list)
         XCTAssertTrue(try controller(for: list) === original)
         XCTAssertTrue(layout.frames[0].contains(try XCTUnwrap(original.window).frame))
@@ -145,7 +173,7 @@ final class NoteScreenRecoveryTests: XCTestCase {
     }
 
     func testDisplayChangeDuringCollapseWaitsThenPersistsLatestValidScreen() throws {
-        let layout = ScreenLayout()
+        let layout = try ScreenLayout()
         var saves = 0
         let environment = try TestEnvironment(saveChanges: { context in
             saves += 1
@@ -153,51 +181,55 @@ final class NoteScreenRecoveryTests: XCTestCase {
         }, visibleScreenFrames: { layout.frames })
         defer { environment.cleanUp() }
         let clock = ManualClock()
-        let list = TodoList(title: "Animating", windowX: 800, windowTop: 780,
-                            windowWidth: 320, windowHeight: 700)
+        let initialFrame = layout.expandedNote
+        let list = TodoList(title: "Animating", windowX: initialFrame.minX, windowTop: initialFrame.maxY,
+                            windowWidth: initialFrame.width, windowHeight: initialFrame.height)
         environment.container.mainContext.insert(list)
         try environment.container.mainContext.save()
         let controller = NoteWindowController(
-            list: list, frame: NSRect(x: 800, y: 80, width: 320, height: 700),
+            list: list, frame: initialFrame,
             modelContainer: environment.container, coordinator: environment.coordinator,
             settings: environment.settings, animationDriver: clock, reduceMotion: { false },
             visibleScreenFrames: { layout.frames }
         )
         defer { controller.close() }
         controller.show()
+        XCTAssertEqual(controller.window?.frame, initialFrame)
         controller.setCollapsed(true, animated: true, persist: false)
         clock.advance(0.5)
         let midpoint = try XCTUnwrap(controller.window).frame
-        layout.frames = [NSRect(x: 0, y: 40, width: 700, height: 500)]
+        layout.frames = [layout.initial.insetBy(dx: 20, dy: 20)]
         controller.fitToScreens(layout.frames, persist: false)
-        layout.frames = [NSRect(x: 0, y: 60, width: 600, height: 400)]
+        layout.frames = [layout.reduced]
         controller.fitToScreens(layout.frames, persist: false)
         controller.fitToScreens([], persist: false)
         XCTAssertEqual(controller.window?.frame, midpoint)
-        XCTAssertEqual(list.windowTop, 780)
-        XCTAssertEqual(list.windowHeight, 700)
+        XCTAssertEqual(list.windowTop, initialFrame.maxY)
+        XCTAssertEqual(list.windowHeight, initialFrame.height)
         XCTAssertFalse(environment.container.mainContext.hasChanges)
         XCTAssertEqual(saves, 0)
         clock.advance(1)
         XCTAssertTrue(layout.frames[0].contains(try XCTUnwrap(controller.window).frame))
         XCTAssertEqual(controller.window?.frame.height, 34)
-        XCTAssertEqual(list.windowHeight, 400)
+        XCTAssertEqual(list.windowHeight, layout.reduced.height)
         XCTAssertTrue(list.isCollapsed)
         XCTAssertEqual(saves, 1)
         try assertSaved(list, in: environment)
     }
 
     func testDisplayChangeDuringExpansionAndQueuedCollapsePreserveExpandedSize() throws {
-        let layout = ScreenLayout()
+        let layout = try ScreenLayout()
         let environment = try TestEnvironment(visibleScreenFrames: { layout.frames })
         defer { environment.cleanUp() }
         let clock = ManualClock()
-        let list = TodoList(title: "Queued", windowX: 800, windowTop: 780,
-                            windowWidth: 320, windowHeight: 700, isCollapsed: true)
+        let initialFrame = layout.expandedNote
+        let list = TodoList(title: "Queued", windowX: initialFrame.minX, windowTop: initialFrame.maxY,
+                            windowWidth: initialFrame.width, windowHeight: initialFrame.height, isCollapsed: true)
         environment.container.mainContext.insert(list)
         try environment.container.mainContext.save()
         let controller = NoteWindowController(
-            list: list, frame: NSRect(x: 800, y: 746, width: 320, height: 34),
+            list: list, frame: NSRect(x: initialFrame.minX, y: initialFrame.maxY - 34,
+                                     width: initialFrame.width, height: 34),
             modelContainer: environment.container, coordinator: environment.coordinator,
             settings: environment.settings, animationDriver: clock, reduceMotion: { false },
             visibleScreenFrames: { layout.frames }
@@ -206,7 +238,7 @@ final class NoteScreenRecoveryTests: XCTestCase {
         controller.show()
         controller.toggleCollapsed()
         clock.advance(0.5)
-        layout.frames = [NSRect(x: 0, y: 60, width: 600, height: 400)]
+        layout.frames = [layout.reduced]
         controller.fitToScreens(layout.frames)
         controller.toggleCollapsed()
         clock.advance(1)
@@ -215,11 +247,11 @@ final class NoteScreenRecoveryTests: XCTestCase {
         clock.advance(1)
         XCTAssertEqual(controller.presentation.phase, .collapsed)
         XCTAssertEqual(controller.window?.frame.height, 34)
-        XCTAssertEqual(list.windowHeight, 400)
-        XCTAssertEqual(list.windowWidth, 320)
+        XCTAssertEqual(list.windowHeight, layout.reduced.height)
+        XCTAssertEqual(list.windowWidth, min(initialFrame.width, layout.reduced.width))
         try assertSaved(list, in: environment)
         controller.setCollapsed(false, animated: false)
-        XCTAssertEqual(controller.window?.frame.height, 400)
+        XCTAssertEqual(controller.window?.frame.height, layout.reduced.height)
         XCTAssertTrue(layout.frames[0].contains(try XCTUnwrap(controller.window).frame))
     }
 }
