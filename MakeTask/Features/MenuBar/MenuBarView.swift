@@ -182,6 +182,15 @@ struct MenuBarView: View {
 
         Divider()
 
+        Button("Welcome to MakeTask…") {
+            coordinator.presentWelcome()
+        }
+
+        Button("About MakeTask…") {
+            settings.selectedSettingsTab = .about
+            openSettings()
+        }
+
         Button("Quit MakeTask") {
             NSApp.terminate(nil)
         }

@@ -30,6 +30,8 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 - Normal Window is the default for newly created notes
 - Menu bar controls; no main window is required
 - Menu bar command center with visible shortcut labels
+- First-launch welcome with first-list creation and offline privacy policy
+- About screen with version and support access
 - Built-in Guide interface for shortcuts, gestures, hide/collapse behavior, and quick actions
 - Open Guide from the menu bar, Settings, or any note's ellipsis menu
 - Global Quick Add, defaulting to `⌘⇧Space`
@@ -236,13 +238,26 @@ maketask --test
 
 Use `maketask --unit-test` for the fast model/service suite or `maketask --ui-test` for only the interactive macOS coverage. The UI suite briefly opens a dedicated test window; it never reads or writes the real MakeTask store.
 
-The test hosts automatically use an in-memory SwiftData container, isolated preferences, and skip system-wide shortcut registration. Sixty unit tests cover JSON round trips, corrupt and forward-version backup rejection, safe additive import, fresh identifiers, duplicate-name handling, window bounds, default-list recovery, cascade deletion, shortcut resolution, and drag reordering within and between lists—including no-op drops, completion state, undo/redo, immediate drag-state cleanup, and persistence. Eight UI tests cover task creation/completion, collapse/expand, hide/reveal recovery, Quick Add, keyboard selection/editing, undo/redo, inline list naming, Quick Add list deletion, task detail keyboard routing, and save-failure feedback without opening Settings. Eight unit tests exercise keyboard routing with real AppKit controls and SwiftUI focus, including remapped window shortcuts, sheets, and returning focus to the note canvas. Five of the unit tests instantiate the real `NoteWindowController` and `FloatingNotePanel`, measure the actual SwiftUI title bounds in screen coordinates, and cover start/mid/end geometry, a real animation clock, rapid toggles, and the nonanimated/Reduce Motion path. Seven tests cover active-note replacement and focus handoff; five cover persistent save failures, shortcut registration failures, and retry/recovery. Eleven tests cover display geometry and recovery, including six with real note panels and simulated display layouts: offscreen restoration, display-change notifications, hidden-note recovery, collapsed expansion, queued animations, and saved bounds. The separate UI host is not evidence of native panel animation correctness. The unit target runs serially because native keyboard focus is shared by the macOS session.
+The test hosts automatically use an in-memory SwiftData container, isolated preferences, and skip system-wide shortcut registration. Sixty-three unit tests cover JSON round trips, corrupt and forward-version backup rejection, safe additive import, fresh identifiers, duplicate-name handling, window bounds, default-list recovery, cascade deletion, shortcut resolution, and drag reordering within and between lists—including no-op drops, completion state, undo/redo, immediate drag-state cleanup, and persistence. Nine UI tests cover first-launch privacy and list creation, task creation/completion, collapse/expand, hide/reveal recovery, Quick Add, keyboard selection/editing, undo/redo, inline list naming, Quick Add list deletion, task detail keyboard routing, and save-failure feedback without opening Settings. Eight unit tests exercise keyboard routing with real AppKit controls and SwiftUI focus, including remapped window shortcuts, sheets, and returning focus to the note canvas. Five of the unit tests instantiate the real `NoteWindowController` and `FloatingNotePanel`, measure the actual SwiftUI title bounds in screen coordinates, and cover start/mid/end geometry, a real animation clock, rapid toggles, and the nonanimated/Reduce Motion path. Seven tests cover active-note replacement and focus handoff; five cover persistent save failures, shortcut registration failures, and retry/recovery. Eleven tests cover display geometry and recovery, including six with real note panels and simulated display layouts: offscreen restoration, display-change notifications, hidden-note recovery, collapsed expansion, queued animations, and saved bounds. Three tests cover welcome visibility, upgrade behavior with hidden lists, and first-list persistence. The separate UI host is not evidence of native panel animation correctness. The unit target runs serially because native keyboard focus is shared by the macOS session.
 
-GitHub Actions also builds the Release app and runs the unit-test suite on every push and pull request. If a check fails, its Xcode result bundle is retained for seven days as a workflow artifact. Interactive UI tests remain local because they require a real macOS window session.
+GitHub Actions also builds the universal Release app, verifies its bundled privacy resources and metadata, and runs the unit-test suite on every push and pull request. If a check fails, its Xcode result bundle is retained for seven days as a workflow artifact. Interactive UI tests remain local because they require a real macOS window session.
+
+## App Store release
+
+See [the release checklist](Release/RELEASE_CHECKLIST.md) for signing, validation, and device checks, [submission copy](Release/APP_STORE.md) for App Store Connect fields, and [screenshots](Release/Screenshots/README.md) for the three exportable Mac images and their generator.
+
+```sh
+./scripts/archive-app-store.sh --unsigned
+./scripts/capture-store-screenshots.sh
+```
+
+The unsigned command checks the local bundle. Distribution requires the correct Apple Developer team and signing assets, public support/privacy URLs, account details, Apple validation, and installed/TestFlight checks. See the checklist before uploading.
+
+The [privacy policy](MakeTask/Resources/PrivacyPolicy.md) is also bundled and readable offline in **Settings → About** and the welcome window. [Support](Release/SUPPORT.md) explains menu-bar discovery, shortcuts, and backups.
 
 ## Next phases
 
-- App Store release preparation: icon, signing, privacy/support pages, and screenshots
+- Complete Apple account signing, TestFlight/device checks, and App Store submission
 - Optional cloud sync, only as an explicit opt-in feature
 
 ## Contributing

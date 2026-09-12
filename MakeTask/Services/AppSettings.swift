@@ -11,6 +11,7 @@ final class AppSettings: ObservableObject {
         case shortcuts
         case backup
         case guide
+        case about
     }
 
     enum AppearanceMode: String, CaseIterable, Identifiable {
@@ -139,6 +140,7 @@ final class AppSettings: ObservableObject {
     }
 
     private enum Key {
+        static let hasCompletedWelcome = "hasCompletedWelcome"
         static let appearance = "appearance"
         static let typography = "typography"
         static let transparency = "transparency"
@@ -159,6 +161,10 @@ final class AppSettings: ObservableObject {
     private let defaults: UserDefaults
 
     @Published var selectedSettingsTab: SettingsTab = .general
+
+    @Published var hasCompletedWelcome: Bool {
+        didSet { defaults.set(hasCompletedWelcome, forKey: Key.hasCompletedWelcome) }
+    }
 
     @Published var appearance: AppearanceMode {
         didSet {
@@ -205,6 +211,7 @@ final class AppSettings: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        hasCompletedWelcome = defaults.bool(forKey: Key.hasCompletedWelcome)
 
         appearance = AppearanceMode(
             rawValue: defaults.string(forKey: Key.appearance) ?? "system"

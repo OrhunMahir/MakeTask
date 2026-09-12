@@ -61,6 +61,7 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
 
         guard !AppRuntime.isRunningUnitTests else { return }
         windowCoordinator.start()
+        windowCoordinator.presentWelcomeIfNeeded()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -75,6 +76,11 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
     private func startUITestSession() {
         settings.completionSound = .none
         windowCoordinator.start(registerGlobalShortcuts: false)
+
+        if ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_WELCOME"] == "1" {
+            windowCoordinator.presentWelcomeIfNeeded()
+            return
+        }
 
         let context = modelContainer.mainContext
         let list = TodoList(title: "UI Test List")

@@ -35,6 +35,12 @@ struct SettingsView: View {
                     Label("Guide", systemImage: "questionmark.circle")
                 }
                 .tag(AppSettings.SettingsTab.guide)
+
+            AboutSettingsView()
+                .tabItem {
+                    Label("About", systemImage: "info.circle")
+                }
+                .tag(AppSettings.SettingsTab.about)
         }
         .frame(width: 640, height: 500)
         .alert("MakeTask", isPresented: coordinatorErrorBinding) {

@@ -63,6 +63,7 @@ final class WindowCoordinator: ObservableObject {
     private var globalShortcutsEnabled = false
     private var localKeyMonitor: Any?
     private var screenSubscription: AnyCancellable?
+    private var welcomeWindowController: WelcomeWindowController?
     private let visibleScreenFrames: @MainActor () -> [NSRect]
     private var isRecordingShortcut = false
     private var taskDragSnapshot: [TaskPositionSnapshot]?
@@ -217,6 +218,47 @@ final class WindowCoordinator: ObservableObject {
             NSEvent.removeMonitor(localKeyMonitor)
             self.localKeyMonitor = nil
         }
+    }
+
+    func presentWelcomeIfNeeded() {
+        guard !settings.hasCompletedWelcome else { return }
+        do {
+            // Existing users, including those with only hidden lists, should
+            // keep their current workspace when updating to this release.
+            guard try context.fetchCount(FetchDescriptor<TodoList>()) == 0 else {
+                settings.hasCompletedWelcome = true
+                return
+            }
+            presentWelcome()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func presentWelcome() {
+        if welcomeWindowController == nil {
+            welcomeWindowController = WelcomeWindowController(coordinator: self) { [weak self] in
+                guard let self else { return }
+                self.settings.hasCompletedWelcome = true
+                self.welcomeWindowController = nil
+            }
+        }
+        welcomeWindowController?.present()
+    }
+
+    func dismissWelcome() {
+        settings.hasCompletedWelcome = true
+        welcomeWindowController?.close()
+        welcomeWindowController = nil
+    }
+
+    @discardableResult
+    func createListFromWelcome(title: String) -> TodoList? {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return nil }
+        let list = createList(title: title)
+        dismissWelcome()
+        return list
     }
 
     func restoreVisibleNotes() {
