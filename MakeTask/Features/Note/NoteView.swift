@@ -214,7 +214,7 @@ struct NoteView: View {
             .keyboardShortcut(.defaultAction)
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("The list and all of its tasks will be deleted. Press ⌘Z immediately afterward to undo.")
+            Text("The list and all of its tasks will be deleted. To restore them, choose Undo Last Action from MakeTask’s menu bar menu.")
         }
         .confirmationDialog(
             "Clear completed tasks?",
@@ -226,7 +226,7 @@ struct NoteView: View {
             .keyboardShortcut(.defaultAction)
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("All completed tasks in this list will be deleted. Press ⌘Z immediately afterward to undo.")
+            Text("All completed tasks in this list will be deleted. To restore them, choose Undo Last Action from MakeTask’s menu bar menu.")
         }
     }
 

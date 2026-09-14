@@ -26,6 +26,7 @@ def main():
     check(bool(info.get("NSHumanReadableCopyright")), "Missing macOS copyright")
     check(info.get("LSApplicationCategoryType") == "public.app-category.productivity", "Missing Productivity category")
     check(info.get("LSUIElement") is True, "Menu-bar application flag is missing")
+    check(info.get("ITSAppUsesNonExemptEncryption") is False, "Export-compliance declaration is missing or unexpected")
     check(bool(info.get("CFBundleIconFile") or info.get("CFBundleIconName")), "Missing app icon")
 
     resources = contents / "Resources"

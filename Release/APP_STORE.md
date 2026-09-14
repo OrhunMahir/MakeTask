@@ -9,8 +9,9 @@ Prepared from the current application. Account-specific fields below must be com
 - Primary language: English (U.S.)
 - Primary category: Productivity
 - Bundle ID: `dev.orhun.MakeTask`
+- Apple Developer membership: Individual, confirmed; Team ID `9WB6D5BCY2`
 - Version: `1.0.0`
-- Build: `1` initially; increment for every subsequent upload
+- Build: `3` — adds final-save protection and reliable legacy-settings migration; replaces the internally tested build 1 and the local build 2 package
 - Minimum macOS version: 14.0
 - Copyright: 2026 MakeTask contributors (matches the repository license)
 
@@ -55,10 +56,10 @@ Meet MakeTask: independent desktop task notes, Quick Add, keyboard shortcuts, su
 - Current contact: https://github.com/OrhunMahir/MakeTask/issues
 - Support page source: `Release/SUPPORT.md`
 - Privacy policy source and bundled copy: `MakeTask/Resources/PrivacyPolicy.md`
-- Proposed stable privacy URL after merging to the public main branch: https://github.com/OrhunMahir/MakeTask/blob/main/MakeTask/Resources/PrivacyPolicy.md
-- Proposed support URL after merging to the public main branch: https://github.com/OrhunMahir/MakeTask/blob/main/Release/SUPPORT.md
+- Privacy URL: https://github.com/OrhunMahir/MakeTask/blob/0dd1ca47df9c07044394733d9534ae0fcd91362d/MakeTask/Resources/PrivacyPolicy.md
+- Support URL: https://github.com/OrhunMahir/MakeTask/blob/0dd1ca47df9c07044394733d9534ae0fcd91362d/Release/SUPPORT.md
 
-Open both proposed URLs in a signed-out browser after publishing; they must display the full documents without signing in. They are not confirmed live until that check passes. A custom domain can replace them later.
+Both selected URLs returned HTTP 200 without sign-in on September 13, 2026. Their source contents match the current bundled privacy policy and local support document byte for byte. These published commit permalinks avoid the unmerged `main` branch's 404 pages. Revisit the URLs when the policy or support content changes; a future public site or merged-main URL can replace them.
 
 ## App Privacy answers
 
@@ -87,11 +88,10 @@ Launch at Login is optional and appears in Settings → General. Privacy Policy 
 
 ## Account decisions still required
 
-- Confirm Apple Developer membership, Team ID, and ownership of the bundle ID.
 - Select free or paid distribution. If paid, supply the price and complete Apple's applicable agreements, tax, and banking information.
 - Enter the real reviewer contact name, email, and phone in App Store Connect.
 - Confirm territory availability and any required business/trader information in the account.
-- Complete the export-compliance questionnaire for the actual binary. MakeTask implements no custom encryption or networking; system-provided functionality should be classified using Apple's questionnaire.
+- Build 3 includes `ITSAppUsesNonExemptEncryption = NO` for the current app, which implements no custom encryption or networking. Reassess this declaration if the app or its dependencies change.
 - Choose manual release so review approval does not immediately publish the app.
 
 ## Apple references
@@ -100,3 +100,11 @@ Launch at Login is optional and appears in Settings → General. Privacy Policy 
 - [App Review privacy rules](https://developer.apple.com/app-store/review/guidelines/#privacy)
 - [App Store Connect privacy answers](https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy/)
 - [Mac screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)
+
+## Current submission requirements checked September 13, 2026
+
+- Complete the store metadata and build selection, support/privacy links, screenshots and review contact information before submission. [Apple submission checklist](https://developer.apple.com/app-store/review/)
+- Answer the current age-rating questions in App Information. [Apple upcoming requirements](https://developer.apple.com/news/upcoming-requirements/)
+- Declare the applicable trader status in Business/App Information; individual membership alone does not establish non-trader status. The account holder must determine the accurate status and provide any required details. [Apple DSA guidance](https://developer.apple.com/help/app-store-connect/manage-compliance-information/manage-european-union-digital-services-act-trader-requirements)
+- Choose **Manually release this version**. App Review approval then precedes a separate release action. [Apple release options](https://developer.apple.com/help/app-store-connect/manage-your-apps-availability/select-an-app-store-version-release-option)
+- Build 3's export-compliance key follows [Apple's property-list guidance](https://developer.apple.com/documentation/bundleresources/information-property-list/itsappusesnonexemptencryption).

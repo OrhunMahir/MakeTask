@@ -64,6 +64,21 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
         windowCoordinator.presentWelcomeIfNeeded()
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Commit active field edits before checking the final persistent save.
+        sender.keyWindow?.makeFirstResponder(nil)
+        guard !windowCoordinator.prepareForTermination() else { return .terminateNow }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "MakeTask could not save your changes"
+        alert.informativeText = "Your latest changes have not been saved. Cancel to keep MakeTask open and retry saving. If you quit without saving, those changes will be lost."
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Quit Without Saving")
+        sender.activate(ignoringOtherApps: true)
+        return alert.runModal() == .alertSecondButtonReturn ? .terminateNow : .terminateCancel
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         windowCoordinator.stop()
         windowCoordinator.saveContext()
@@ -91,6 +106,11 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
         settings.lastQuickCaptureListID = list.id
         windowCoordinator.noteDidBecomeActive(list)
         windowCoordinator.saveContext()
+
+        if ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_NATIVE_NOTES"] == "1" {
+            windowCoordinator.showAndActivate(list)
+            return
+        }
 
         let rootView = UITestHostView()
             .modelContainer(modelContainer)

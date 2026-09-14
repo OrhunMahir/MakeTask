@@ -298,11 +298,12 @@ final class WindowCoordinator: ObservableObject {
             renameListID = list.id
         }
         let createdListID = list.id
-        let snapshot = ListSnapshot(list: list, settings: settings)
+        var snapshot = ListSnapshot(list: list, settings: settings)
         registerUndoAction(
             named: "Create List",
             undo: { [weak self] in
                 guard let self, let createdList = self.fetchList(id: createdListID) else { return }
+                snapshot = ListSnapshot(list: createdList, settings: self.settings)
                 self.deleteListWithoutRegisteringUndo(createdList)
             },
             redo: { [weak self] in
@@ -313,7 +314,7 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func deleteList(_ list: TodoList) {
-        let snapshot = ListSnapshot(list: list, settings: settings)
+        var snapshot = ListSnapshot(list: list, settings: settings)
         deleteListWithoutRegisteringUndo(list)
         registerUndoAction(
             named: "Delete List",
@@ -322,6 +323,7 @@ final class WindowCoordinator: ObservableObject {
             },
             redo: { [weak self] in
                 guard let self, let restoredList = self.fetchList(id: snapshot.id) else { return }
+                snapshot = ListSnapshot(list: restoredList, settings: self.settings)
                 self.deleteListWithoutRegisteringUndo(restoredList)
             }
         )
@@ -518,11 +520,14 @@ final class WindowCoordinator: ObservableObject {
         let task = TodoTask(title: trimmed, sortOrder: order, list: list)
         context.insert(task)
         saveContext()
-        let snapshot = TaskSnapshot(task: task)
+        // Capture again before each history-driven deletion: notes and dates can
+        // change without adding an application undo entry.
+        var snapshot = TaskSnapshot(task: task)
         registerUndoAction(
             named: "Add Task",
             undo: { [weak self] in
                 guard let self, let currentTask = self.fetchTask(id: snapshot.id) else { return }
+                snapshot = TaskSnapshot(task: currentTask)
                 self.context.delete(currentTask)
             },
             redo: { [weak self] in
@@ -560,7 +565,7 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func deleteTask(_ task: TodoTask) {
-        let snapshot = TaskSnapshot(task: task)
+        var snapshot = TaskSnapshot(task: task)
         context.delete(task)
         scheduleNextDueDateRefresh()
         saveContext()
@@ -571,6 +576,7 @@ final class WindowCoordinator: ObservableObject {
             },
             redo: { [weak self] in
                 guard let self, let restoredTask = self.fetchTask(id: snapshot.id) else { return }
+                snapshot = TaskSnapshot(task: restoredTask)
                 self.context.delete(restoredTask)
             }
         )
@@ -627,12 +633,13 @@ final class WindowCoordinator: ObservableObject {
         context.insert(subtask)
         saveContext()
 
-        let snapshot = SubtaskSnapshot(subtask: subtask)
+        var snapshot = SubtaskSnapshot(subtask: subtask)
         let taskID = task.id
         registerUndoAction(
             named: "Add Subtask",
             undo: { [weak self] in
                 guard let self, let currentSubtask = self.fetchSubtask(id: snapshot.id) else { return }
+                snapshot = SubtaskSnapshot(subtask: currentSubtask)
                 self.context.delete(currentSubtask)
             },
             redo: { [weak self] in
@@ -691,7 +698,7 @@ final class WindowCoordinator: ObservableObject {
 
     func deleteSubtask(_ subtask: TodoSubtask) {
         guard let taskID = subtask.task?.id else { return }
-        let snapshot = SubtaskSnapshot(subtask: subtask)
+        var snapshot = SubtaskSnapshot(subtask: subtask)
         context.delete(subtask)
         saveContext()
 
@@ -702,13 +709,14 @@ final class WindowCoordinator: ObservableObject {
             },
             redo: { [weak self] in
                 guard let self, let restoredSubtask = self.fetchSubtask(id: snapshot.id) else { return }
+                snapshot = SubtaskSnapshot(subtask: restoredSubtask)
                 self.context.delete(restoredSubtask)
             }
         )
     }
 
     func clearCompletedTasks(in list: TodoList) {
-        let snapshots = list.tasks.filter(\.isCompleted).map(TaskSnapshot.init)
+        var snapshots = list.tasks.filter(\.isCompleted).map(TaskSnapshot.init)
         guard !snapshots.isEmpty else { return }
 
         for task in list.tasks where task.isCompleted {
@@ -724,11 +732,9 @@ final class WindowCoordinator: ObservableObject {
             },
             redo: { [weak self] in
                 guard let self else { return }
-                for snapshot in snapshots {
-                    if let task = self.fetchTask(id: snapshot.id) {
-                        self.context.delete(task)
-                    }
-                }
+                let tasks = snapshots.compactMap { self.fetchTask(id: $0.id) }
+                snapshots = tasks.map(TaskSnapshot.init)
+                tasks.forEach { self.context.delete($0) }
             }
         )
     }
@@ -980,6 +986,16 @@ final class WindowCoordinator: ObservableObject {
         // The persistent issue is intentionally independent of dismissible
         // Settings alerts and of global shortcut registration errors.
         try? persistChanges()
+    }
+
+    /// A failed final save must give the user a chance to keep the app open.
+    func prepareForTermination() -> Bool {
+        do {
+            try persistChanges()
+            return !context.hasChanges
+        } catch {
+            return false
+        }
     }
 
     private func persistChanges() throws {
@@ -1479,15 +1495,18 @@ final class WindowCoordinator: ObservableObject {
     }
 
     private func migrateLegacyWindowDefaultsIfNeeded() {
-        let migrationKey = "MakeTask.didMigrateDefaultWindowModeToNormal.v1"
-        let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: migrationKey) else { return }
-
-        for list in fetchLists() where list.windowMode == .desktop {
-            list.windowMode = .normal
+        guard !settings.hasMigratedLegacyWindowDefaults else { return }
+        do {
+            // Do not treat a failed fetch as an empty, successfully migrated store.
+            let lists = try context.fetch(FetchDescriptor<TodoList>())
+            for list in lists where list.windowMode == .desktop {
+                list.windowMode = .normal
+            }
+            try persistChanges()
+            settings.hasMigratedLegacyWindowDefaults = true
+        } catch {
+            persistenceError = error.localizedDescription
         }
-        saveContext()
-        defaults.set(true, forKey: migrationKey)
     }
 
     private func refitNoteWindows() {

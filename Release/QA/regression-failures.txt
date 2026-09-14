@@ -1,0 +1,14 @@
+Test Case '-[MakeTaskTests.ReleaseDataSafetyRegressionTests testAddTaskUndoRedoPreservesNotesAndDueDate]' started.
+QA-copy/MakeTaskTests/ReleaseDataSafetyRegressionTests.swift:31: error: -[MakeTaskTests.ReleaseDataSafetyRegressionTests testAddTaskUndoRedoPreservesNotesAndDueDate] : XCTAssertEqual failed: ("") is not equal to ("This note must survive Undo followed by Redo.") - Redo must preserve the details present before Undo removed the task.
+QA-copy/MakeTaskTests/ReleaseDataSafetyRegressionTests.swift:32: error: -[MakeTaskTests.ReleaseDataSafetyRegressionTests testAddTaskUndoRedoPreservesNotesAndDueDate] : XCTAssertEqual failed: ("nil") is not equal to ("Optional(2027-01-15 08:00:00 +0000)") - Redo must preserve the due date present before Undo removed the task.
+Test Case '-[MakeTaskTests.ReleaseDataSafetyRegressionTests testAddTaskUndoRedoPreservesNotesAndDueDate]' failed (0.087 seconds).
+Test Case '-[MakeTaskTests.ReleaseDataSafetyRegressionTests testDeleteUndoDetailEditRedoUndoPreservesLatestDetails]' started.
+QA-copy/MakeTaskTests/ReleaseDataSafetyRegressionTests.swift:65: error: -[MakeTaskTests.ReleaseDataSafetyRegressionTests testDeleteUndoDetailEditRedoUndoPreservesLatestDetails] : XCTAssertEqual failed: ("Original note") is not equal to ("Details edited after restoring the task.") - Undo must recover the details immediately preceding the repeated deletion.
+QA-copy/MakeTaskTests/ReleaseDataSafetyRegressionTests.swift:66: error: -[MakeTaskTests.ReleaseDataSafetyRegressionTests testDeleteUndoDetailEditRedoUndoPreservesLatestDetails] : XCTAssertEqual failed: ("nil") is not equal to ("Optional(2027-01-15 08:00:00 +0000)") - Undo must recover the latest due date.
+Test Case '-[MakeTaskTests.ReleaseDataSafetyRegressionTests testDeleteUndoDetailEditRedoUndoPreservesLatestDetails]' failed (0.010 seconds).
+Test Case '-[MakeTaskTests.ReleaseDataSafetyRegressionTests testSuccessfulLargeBackupEncodingMustRemainImportable]' started.
+QA-copy/MakeTaskTests/ReleaseDataSafetyRegressionTests.swift:117: error: -[MakeTaskTests.ReleaseDataSafetyRegressionTests testSuccessfulLargeBackupEncodingMustRemainImportable] : failed - Encoding succeeded for 27008943 bytes but the app rejects its own backup: fileTooLarge
+Test Case '-[MakeTaskTests.ReleaseDataSafetyRegressionTests testSuccessfulLargeBackupEncodingMustRemainImportable]' failed (0.124 seconds).
+	 Executed 3 tests, with 5 failures (0 unexpected) in 0.221 (0.222) seconds
+	 Executed 3 tests, with 5 failures (0 unexpected) in 0.221 (0.222) seconds
+	 Executed 3 tests, with 5 failures (0 unexpected) in 0.221 (0.222) seconds

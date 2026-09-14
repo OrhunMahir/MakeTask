@@ -160,6 +160,11 @@ final class AppSettings: ObservableObject {
 
     private let defaults: UserDefaults
 
+    var hasMigratedLegacyWindowDefaults: Bool {
+        get { defaults.bool(forKey: "MakeTask.didMigrateDefaultWindowModeToNormal.v1") }
+        set { defaults.set(newValue, forKey: "MakeTask.didMigrateDefaultWindowModeToNormal.v1") }
+    }
+
     @Published var selectedSettingsTab: SettingsTab = .general
 
     @Published var hasCompletedWelcome: Bool {
