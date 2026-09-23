@@ -25,6 +25,10 @@ struct TaskRowView: View {
         editingTaskID == task.id
     }
 
+    private var showsDeleteButton: Bool {
+        isHovering && !isEditing
+    }
+
     private var isDragging: Bool {
         coordinator.draggedTaskID == task.id
     }
@@ -177,9 +181,12 @@ struct TaskRowView: View {
             )
 
             if isEditing {
-                TextField("Task title", text: $titleDraft)
+                TextField("Task title", text: $titleDraft, axis: .vertical)
                     .textFieldStyle(.plain)
                     .font(settings.font(size: 13.5))
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityIdentifier("task.title-field")
                     .focused($isTitleFocused)
                     .onSubmit(commitEditing)
@@ -248,18 +255,21 @@ struct TaskRowView: View {
                 }
             }
 
-            if isHovering && !isEditing {
-                Button {
-                    coordinator.deleteTask(task)
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Delete task")
-                .transition(.opacity)
+            Button {
+                coordinator.deleteTask(task)
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
             }
+            .buttonStyle(.plain)
+            .help("Delete task")
+            // Keep the action's space reserved so hovering never rewraps the title.
+            .opacity(showsDeleteButton ? 1 : 0)
+            .disabled(!showsDeleteButton)
+            .allowsHitTesting(showsDeleteButton)
+            .accessibilityHidden(!showsDeleteButton)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 5)

@@ -23,6 +23,58 @@ final class NativeNoteSafetyUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Complete Alpha Task"].waitForExistence(timeout: 5))
     }
 
+    func testLongTitleKeepsItsLayoutOnHoverAndWhileEditing() {
+        launch()
+        let longTitle = "Prepare the next release and read user feedback before launch. Keep every task clear and easy to follow."
+        app.typeKey(.downArrow, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        let editor = app.descendants(matching: .any).matching(identifier: "task.title-field").firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 2))
+        editor.typeKey("a", modifierFlags: .command)
+        editor.typeText(longTitle)
+        XCTAssertGreaterThan(editor.frame.height, 35, "Long titles must wrap while being edited")
+        editor.typeKey(.return, modifierFlags: [])
+        XCTAssertTrue(editor.waitForNonExistence(timeout: 2), "Return must still save the title")
+
+        let title = app.staticTexts.matching(NSPredicate(format: "value == %@", longTitle)).firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 2))
+        let beta = app.buttons["Complete Beta Task"]
+        let header = app.descendants(matching: .any).matching(identifier: "note.options").firstMatch
+        header.hover()
+        let titleFrame = title.frame
+        let betaFrame = beta.frame
+        // The native drag surface overlays the text, so target its visible location.
+        title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
+        XCTAssertEqual(title.frame.width, titleFrame.width, accuracy: 1)
+        XCTAssertEqual(title.frame.height, titleFrame.height, accuracy: 1)
+        XCTAssertEqual(beta.frame.minY, betaFrame.minY, accuracy: 1,
+                       "Revealing Delete must not move the following task")
+        header.hover()
+        XCTAssertEqual(title.frame.height, titleFrame.height, accuracy: 1)
+
+        title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).rightClick()
+        app.menuItems["Edit Task"].click()
+        XCTAssertTrue(editor.waitForExistence(timeout: 2))
+        XCTAssertGreaterThan(editor.frame.height, 35)
+        XCTAssertEqual(editor.frame.minX, titleFrame.minX, accuracy: 2)
+        editor.typeKey("a", modifierFlags: .command)
+        editor.typeText("Cancelled draft")
+        editor.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(editor.waitForNonExistence(timeout: 2))
+        XCTAssertTrue(title.exists, "Escape must preserve the original paragraph")
+
+        title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).rightClick()
+        app.menuItems["Edit Task"].click()
+        XCTAssertTrue(editor.waitForExistence(timeout: 2))
+        editor.typeKey("a", modifierFlags: .command)
+        editor.typeText("Saved after focus changed")
+        app.textFields["note.new-task-field"].click()
+        XCTAssertTrue(editor.waitForNonExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["Complete Saved after focus changed"].exists)
+        undoFromMenu()
+        XCTAssertTrue(title.waitForExistence(timeout: 2), "Undo must restore the full long title")
+    }
+
     func testDeleteFromHeaderCancelConfirmAndUndoRestoresNativeNote() {
         launch()
         app.descendants(matching: .any).matching(identifier: "note.options").firstMatch.click()

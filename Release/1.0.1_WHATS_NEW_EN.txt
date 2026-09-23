@@ -1,0 +1,3 @@
+Editing long tasks is now easier: task titles stay wrapped across multiple lines while you edit.
+
+Task text now stays in place when the delete button appears as you move the pointer over a task.
