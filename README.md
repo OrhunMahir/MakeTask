@@ -41,6 +41,33 @@ MakeTask lives in the **menu bar** at the top of your screen. Click its icon to 
 
 Customize these in **Settings → Shortcuts**. You can also double-click an empty area of a note's header to roll it up or expand it.
 
+## Build and run from source
+
+Requires **macOS 14+** and **Xcode 16+**. Open Xcode once to complete its setup, and select its command-line tools in **Xcode → Settings → Locations**.
+
+Clone the repository and run the installer in Terminal:
+
+```sh
+git clone https://github.com/OrhunMahir/MakeTask.git
+cd MakeTask
+./scripts/install-maketask.sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+The installer builds a Release app in `~/Applications/MakeTask.app`, installs the `maketask` command, and opens the app. Add the `export PATH` line to your shell profile (usually `~/.zshrc`) to keep the command available in new terminal sessions. If you use a custom install directory, follow the PATH instructions printed by the installer.
+
+After setup:
+
+```sh
+maketask                 # Open the installed app
+maketask --dev           # Build and open the latest Debug app
+maketask --unit-test     # Run unit tests
+maketask --test          # Run unit and interactive UI tests
+maketask --help          # Show all commands
+```
+
+You can also open `MakeTask.xcodeproj` in Xcode, select **MakeTask → My Mac**, and press `⌘R`. If signing requires it, select your development team or change the bundle identifier in the app target. See the [developer guide](docs/DEVELOPMENT.md) for more build options, testing, and architecture.
+
 ## Help and more
 
 - **[Support & feedback](https://github.com/OrhunMahir/MakeTask/issues)** — report a problem or suggest an idea.
