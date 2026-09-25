@@ -4,9 +4,23 @@
 
 **Apple Stickies for todos.** MakeTask is a lightweight, local-first macOS menu bar app that keeps independent todo notes on the desktop.
 
-MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused AppKit layer for desktop-level windows, window restoration, and Stickies-style roll-up behavior. It has no third-party dependencies.
+Keep your tasks visible in colorful desktop notes, capture ideas with Quick Add, and organize your day without creating an account. MakeTask works offline and keeps your tasks on your Mac.
 
-## MVP features
+## Download
+
+**[Download MakeTask on the Mac App Store →](https://apps.apple.com/app/maketask/id6811447937)**
+
+Free for macOS 14 Sonoma or newer. No account, ads, or analytics.
+
+### Getting started
+
+1. Install MakeTask from the Mac App Store and open it.
+2. Create your first list, then add tasks to its desktop note.
+3. Use the MakeTask menu bar icon to manage your lists and open Settings. Press `⌘⇧Space` to capture a task with Quick Add.
+
+MakeTask lives in the menu bar. Open **Guide** for shortcuts and gestures, or use **Settings → Backup** to export a local backup.
+
+## Features
 
 - Multiple independent floating todo notes
 - No forced Inbox or other system list
@@ -46,11 +60,12 @@ MakeTask is currently an MVP. It is written in Swift and SwiftUI, with a focused
 
 ## Requirements
 
-- macOS 14 Sonoma or newer
-- Xcode 16 or newer
-- Swift 5 language mode
+- **Using the app:** macOS 14 Sonoma or newer. Install it from the [Mac App Store](https://apps.apple.com/app/maketask/id6811447937).
+- **Building from source:** Xcode 16 or newer, using Swift 5 language mode.
 
-## Build and run
+## Build from source
+
+MakeTask is written in Swift and SwiftUI, with a focused AppKit layer for desktop windows, window restoration, and Stickies-style roll-up behavior. It has no third-party dependencies.
 
 ### One-command launcher
 
@@ -232,10 +247,13 @@ The test hosts automatically use an in-memory SwiftData container, isolated pref
 
 GitHub Actions also builds the Release app and runs the unit-test suite on every push and pull request. If a check fails, its Xcode result bundle is retained for seven days as a workflow artifact. Interactive UI tests remain local because they require a real macOS window session.
 
-## Next phases
+## Support and feedback
 
-- App Store release preparation: icon, signing, privacy/support pages, and screenshots
-- Optional cloud sync, only as an explicit opt-in feature
+Found a bug or have a feature idea? [Open a GitHub issue](https://github.com/OrhunMahir/MakeTask/issues). For bugs, include your macOS version, MakeTask version, and steps to reproduce the problem. Avoid including private task content.
+
+## Future ideas
+
+- Optional cloud sync, only as an explicit opt-in feature. The current app stores tasks locally and does not sync between devices.
 
 ## Contributing
 
