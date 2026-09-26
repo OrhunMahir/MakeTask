@@ -1,0 +1,27 @@
+MakeTask 1.0.1 (4) is a small usability update to the existing macOS app.
+
+Changes:
+- Long task titles remain wrapped across multiple lines during inline editing.
+- Revealing the Delete button on hover no longer changes the task title's available width or moves the following task.
+
+To test: launch MakeTask, create a task with a title long enough to wrap, then right-click it and choose Edit Task. The editor expands vertically. Return saves, Escape cancels, and moving focus to the New task field saves the edit. Move the pointer onto and off a long task to confirm its text remains in place.
+
+Reference information for future submissions:
+
+1. Demonstration and testing
+The screen recording MakeTask-AppReview-Demo.mp4 in our September 16 App Review response demonstrates the previously approved 1.0.0 (3) on a physical MacBook Pro with Apple M3 Pro, running macOS 27.0 (26A428). It starts with launch and shows task creation, details, subtasks, notes, due dates and priority. It is reference footage of the previous version, not a recording of 1.0.1. The two editing fixes in this update were checked with automated tests on the physical Mac, including the actual native note panel.
+
+2. Purpose and audience
+MakeTask is a personal task organizer for the general public, including students and professionals. Independent desktop note windows keep lists visible; Quick Add and keyboard shortcuts make capturing tasks easier. It is not restricted to a business or organization.
+
+3. Setup and access
+Launch MakeTask and create a list in the welcome window. The app lives in the menu bar and does not keep a Dock icon. The menu-bar icon shows hidden lists and opens Settings. Add tasks in a note, click a title to open details, and click its circle to complete it. Double-click empty header space to collapse/expand. Quick Add is available from the menu bar or Command-Shift-Space (customizable). Settings > Backup exports/imports local JSON backups. No credentials or sample files are needed. There are no user accounts, public content feeds, messaging, payments, subscriptions or ads. Task text stays private on the user's Mac, so account deletion, content reporting and user blocking do not apply.
+
+4. External services
+Core functionality uses Apple's SwiftUI/AppKit and SwiftData locally. No external servers, authentication, data providers, payment processors, analytics/advertising SDKs or AI services are used. No cloud sync or network connection is required. Optional support opens public GitHub Issues in the browser; the privacy policy is also bundled offline.
+
+5. Regions
+Features and content are consistent across distribution regions. Date/time presentation follows system settings.
+
+6. Regulated services and protected content
+MakeTask does not provide regulated financial, medical or gambling services or distribute protected third-party media. No industry licenses or third-party content authorization documents are applicable.

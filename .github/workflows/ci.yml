@@ -32,8 +32,13 @@ jobs:
             -configuration Release \
             -destination 'platform=macOS' \
             -derivedDataPath "$RUNNER_TEMP/MakeTaskDerivedData" \
+            ARCHS='arm64 x86_64' \
+            ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+      - name: Check release bundle resources
+        run: python3 scripts/verify-release.py "$RUNNER_TEMP/MakeTaskDerivedData/Build/Products/Release/MakeTask.app"
 
       - name: Run unit tests
         run: |

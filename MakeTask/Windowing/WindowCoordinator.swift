@@ -47,13 +47,24 @@ final class WindowCoordinator: ObservableObject {
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
     @Published var errorMessage: String?
+    @Published private(set) var persistenceError: String?
+    @Published private(set) var globalShortcutErrors: [AppShortcutAction: String] = [:]
+    @Published private(set) var registeredGlobalShortcuts: [AppShortcutAction: AppShortcut] = [:]
+
+    var hasRuntimeIssues: Bool { persistenceError != nil || !globalShortcutErrors.isEmpty }
 
     private let context: ModelContext
     private var noteWindows: [UUID: NoteWindowController] = [:]
     private var quickAddWindow: QuickAddWindowController?
-    private var quickAddHotKeyService: GlobalHotKeyService?
-    private var visibilityHotKeyService: GlobalHotKeyService?
+    private var quickAddHotKeyService: (any GlobalHotKeyRegistering)?
+    private var visibilityHotKeyService: (any GlobalHotKeyRegistering)?
+    private let makeHotKeyService: (UInt32) throws -> any GlobalHotKeyRegistering
+    private let saveChanges: (ModelContext) throws -> Void
+    private var globalShortcutsEnabled = false
     private var localKeyMonitor: Any?
+    private var screenSubscription: AnyCancellable?
+    private var welcomeWindowController: WelcomeWindowController?
+    private let visibleScreenFrames: @MainActor () -> [NSRect]
     private var isRecordingShortcut = false
     private var taskDragSnapshot: [TaskPositionSnapshot]?
     private var taskDragCurrentPositions: [UUID: TaskPositionSnapshot]?
@@ -164,50 +175,90 @@ final class WindowCoordinator: ObservableObject {
     init(
         modelContainer: ModelContainer,
         settings: AppSettings,
-        launchAtLogin: LaunchAtLoginService
+        launchAtLogin: LaunchAtLoginService,
+        saveChanges: ((ModelContext) throws -> Void)? = nil,
+        makeHotKeyService: ((UInt32) throws -> any GlobalHotKeyRegistering)? = nil,
+        visibleScreenFrames: @escaping @MainActor () -> [NSRect] = { NoteScreenGeometry.currentVisibleFrames }
     ) {
         self.modelContainer = modelContainer
         self.context = modelContainer.mainContext
         self.settings = settings
         self.launchAtLogin = launchAtLogin
+        self.visibleScreenFrames = visibleScreenFrames
+        self.saveChanges = saveChanges ?? { try $0.save() }
+        self.makeHotKeyService = makeHotKeyService ?? { try GlobalHotKeyService(identifier: $0) }
     }
 
     func start(registerGlobalShortcuts: Bool = true) {
         migrateLegacyWindowDefaultsIfNeeded()
 
-        if registerGlobalShortcuts {
-            do {
-                let quickAddService = try GlobalHotKeyService(identifier: 1)
-                quickAddService.onPressed = { [weak self] in
-                    self?.presentQuickAdd()
-                }
-                quickAddHotKeyService = quickAddService
-
-                let visibilityService = try GlobalHotKeyService(identifier: 2)
-                visibilityService.onPressed = { [weak self] in
-                    self?.toggleAllNotesVisibility()
-                }
-                visibilityHotKeyService = visibilityService
-                _ = reloadGlobalShortcuts()
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-        }
+        globalShortcutsEnabled = registerGlobalShortcuts
+        if registerGlobalShortcuts { _ = reloadGlobalShortcuts() }
 
         installLocalKeyMonitor()
+        if screenSubscription == nil {
+            screenSubscription = NotificationCenter.default
+                .publisher(for: NSApplication.didChangeScreenParametersNotification)
+                .receive(on: RunLoop.main)
+                .sink { [weak self] _ in self?.refitNoteWindows() }
+        }
         restoreVisibleNotes()
         scheduleNextDueDateRefresh()
     }
 
     func stop() {
+        screenSubscription?.cancel()
+        screenSubscription = nil
         quickAddHotKeyService?.unregister()
         visibilityHotKeyService?.unregister()
+        registeredGlobalShortcuts = [:]
         dueDateRefreshWorkItem?.cancel()
         dueDateRefreshWorkItem = nil
         if let localKeyMonitor {
             NSEvent.removeMonitor(localKeyMonitor)
             self.localKeyMonitor = nil
         }
+    }
+
+    func presentWelcomeIfNeeded() {
+        guard !settings.hasCompletedWelcome else { return }
+        do {
+            // Existing users, including those with only hidden lists, should
+            // keep their current workspace when updating to this release.
+            guard try context.fetchCount(FetchDescriptor<TodoList>()) == 0 else {
+                settings.hasCompletedWelcome = true
+                return
+            }
+            presentWelcome()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func presentWelcome() {
+        if welcomeWindowController == nil {
+            welcomeWindowController = WelcomeWindowController(coordinator: self) { [weak self] in
+                guard let self else { return }
+                self.settings.hasCompletedWelcome = true
+                self.welcomeWindowController = nil
+            }
+        }
+        welcomeWindowController?.present()
+    }
+
+    func dismissWelcome() {
+        settings.hasCompletedWelcome = true
+        welcomeWindowController?.close()
+        welcomeWindowController = nil
+    }
+
+    @discardableResult
+    func createListFromWelcome(title: String) -> TodoList? {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return nil }
+        let list = createList(title: title)
+        dismissWelcome()
+        return list
     }
 
     func restoreVisibleNotes() {
@@ -247,11 +298,12 @@ final class WindowCoordinator: ObservableObject {
             renameListID = list.id
         }
         let createdListID = list.id
-        let snapshot = ListSnapshot(list: list, settings: settings)
+        var snapshot = ListSnapshot(list: list, settings: settings)
         registerUndoAction(
             named: "Create List",
             undo: { [weak self] in
                 guard let self, let createdList = self.fetchList(id: createdListID) else { return }
+                snapshot = ListSnapshot(list: createdList, settings: self.settings)
                 self.deleteListWithoutRegisteringUndo(createdList)
             },
             redo: { [weak self] in
@@ -262,7 +314,7 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func deleteList(_ list: TodoList) {
-        let snapshot = ListSnapshot(list: list, settings: settings)
+        var snapshot = ListSnapshot(list: list, settings: settings)
         deleteListWithoutRegisteringUndo(list)
         registerUndoAction(
             named: "Delete List",
@@ -271,12 +323,16 @@ final class WindowCoordinator: ObservableObject {
             },
             redo: { [weak self] in
                 guard let self, let restoredList = self.fetchList(id: snapshot.id) else { return }
+                snapshot = ListSnapshot(list: restoredList, settings: self.settings)
                 self.deleteListWithoutRegisteringUndo(restoredList)
             }
         )
     }
 
     private func deleteListWithoutRegisteringUndo(_ list: TodoList) {
+        let wasActive = activeListID == list.id
+        let wasKey = noteWindows[list.id]?.window?.isKeyWindow == true
+        list.isHidden = true
         noteWindows[list.id]?.hide()
         noteWindows[list.id] = nil
 
@@ -291,6 +347,7 @@ final class WindowCoordinator: ObservableObject {
         }
 
         context.delete(list)
+        reconcileActiveList(excluding: list.id, selectFirst: wasActive, makeKey: wasKey)
         scheduleNextDueDateRefresh()
         saveContext()
     }
@@ -335,11 +392,13 @@ final class WindowCoordinator: ObservableObject {
                 frame: restoredFrame(for: list),
                 modelContainer: modelContainer,
                 coordinator: self,
-                settings: settings
+                settings: settings,
+                visibleScreenFrames: visibleScreenFrames
             )
             noteWindows[list.id] = controller
             controller.show()
         }
+        reconcileActiveList()
         saveContext()
     }
 
@@ -349,8 +408,11 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func hide(_ list: TodoList) {
+        let wasActive = activeListID == list.id
+        let wasKey = noteWindows[list.id]?.window?.isKeyWindow == true
         list.isHidden = true
         noteWindows[list.id]?.hide()
+        reconcileActiveList(selectFirst: wasActive, makeKey: wasKey)
         saveContext()
     }
 
@@ -367,7 +429,13 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func hideAll() {
-        fetchLists().forEach(hide)
+        let lists = fetchLists()
+        // Mark the whole batch first so key-window callbacks cannot select a
+        // note that is about to be hidden.
+        lists.forEach { $0.isHidden = true }
+        lists.forEach { noteWindows[$0.id]?.hide() }
+        reconcileActiveList()
+        saveContext()
     }
 
     func toggleAllNotesVisibility() {
@@ -378,7 +446,7 @@ final class WindowCoordinator: ObservableObject {
         }
 
         if lists.allSatisfy({ !$0.isHidden }) {
-            lists.forEach(hide)
+            hideAll()
         } else {
             lists.forEach(show)
             if let firstList = lists.first {
@@ -390,10 +458,10 @@ final class WindowCoordinator: ObservableObject {
     func toggleCollapse(_ list: TodoList) {
         guard let controller = noteWindows[list.id] else {
             show(list)
-            noteWindows[list.id]?.setCollapsed(!list.isCollapsed, animated: true)
+            noteWindows[list.id]?.toggleCollapsed()
             return
         }
-        controller.setCollapsed(!list.isCollapsed, animated: true)
+        controller.toggleCollapsed()
     }
 
     func collapseActiveNote() {
@@ -407,6 +475,7 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func noteDidBecomeActive(_ list: TodoList) {
+        guard !list.isHidden else { return }
         activeListID = list.id
     }
 
@@ -451,11 +520,14 @@ final class WindowCoordinator: ObservableObject {
         let task = TodoTask(title: trimmed, sortOrder: order, list: list)
         context.insert(task)
         saveContext()
-        let snapshot = TaskSnapshot(task: task)
+        // Capture again before each history-driven deletion: notes and dates can
+        // change without adding an application undo entry.
+        var snapshot = TaskSnapshot(task: task)
         registerUndoAction(
             named: "Add Task",
             undo: { [weak self] in
                 guard let self, let currentTask = self.fetchTask(id: snapshot.id) else { return }
+                snapshot = TaskSnapshot(task: currentTask)
                 self.context.delete(currentTask)
             },
             redo: { [weak self] in
@@ -493,7 +565,7 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func deleteTask(_ task: TodoTask) {
-        let snapshot = TaskSnapshot(task: task)
+        var snapshot = TaskSnapshot(task: task)
         context.delete(task)
         scheduleNextDueDateRefresh()
         saveContext()
@@ -504,6 +576,7 @@ final class WindowCoordinator: ObservableObject {
             },
             redo: { [weak self] in
                 guard let self, let restoredTask = self.fetchTask(id: snapshot.id) else { return }
+                snapshot = TaskSnapshot(task: restoredTask)
                 self.context.delete(restoredTask)
             }
         )
@@ -560,12 +633,13 @@ final class WindowCoordinator: ObservableObject {
         context.insert(subtask)
         saveContext()
 
-        let snapshot = SubtaskSnapshot(subtask: subtask)
+        var snapshot = SubtaskSnapshot(subtask: subtask)
         let taskID = task.id
         registerUndoAction(
             named: "Add Subtask",
             undo: { [weak self] in
                 guard let self, let currentSubtask = self.fetchSubtask(id: snapshot.id) else { return }
+                snapshot = SubtaskSnapshot(subtask: currentSubtask)
                 self.context.delete(currentSubtask)
             },
             redo: { [weak self] in
@@ -624,7 +698,7 @@ final class WindowCoordinator: ObservableObject {
 
     func deleteSubtask(_ subtask: TodoSubtask) {
         guard let taskID = subtask.task?.id else { return }
-        let snapshot = SubtaskSnapshot(subtask: subtask)
+        var snapshot = SubtaskSnapshot(subtask: subtask)
         context.delete(subtask)
         saveContext()
 
@@ -635,13 +709,14 @@ final class WindowCoordinator: ObservableObject {
             },
             redo: { [weak self] in
                 guard let self, let restoredSubtask = self.fetchSubtask(id: snapshot.id) else { return }
+                snapshot = SubtaskSnapshot(subtask: restoredSubtask)
                 self.context.delete(restoredSubtask)
             }
         )
     }
 
     func clearCompletedTasks(in list: TodoList) {
-        let snapshots = list.tasks.filter(\.isCompleted).map(TaskSnapshot.init)
+        var snapshots = list.tasks.filter(\.isCompleted).map(TaskSnapshot.init)
         guard !snapshots.isEmpty else { return }
 
         for task in list.tasks where task.isCompleted {
@@ -657,11 +732,9 @@ final class WindowCoordinator: ObservableObject {
             },
             redo: { [weak self] in
                 guard let self else { return }
-                for snapshot in snapshots {
-                    if let task = self.fetchTask(id: snapshot.id) {
-                        self.context.delete(task)
-                    }
-                }
+                let tasks = snapshots.compactMap { self.fetchTask(id: $0.id) }
+                snapshots = tasks.map(TaskSnapshot.init)
+                tasks.forEach { self.context.delete($0) }
             }
         )
     }
@@ -849,42 +922,56 @@ final class WindowCoordinator: ObservableObject {
         controller?.dismiss()
     }
 
+    func globalShortcutDescription(for action: AppShortcutAction) -> String? {
+        registeredGlobalShortcuts[action]?.displayString
+    }
+
     @discardableResult
     func reloadGlobalShortcuts() -> String? {
+        guard globalShortcutsEnabled, !isRecordingShortcut else { return nil }
         quickAddHotKeyService?.unregister()
         visibilityHotKeyService?.unregister()
+        var registrations: [AppShortcutAction: AppShortcut] = [:]
+        var failures: [AppShortcutAction: String] = [:]
+        let actions: [AppShortcutAction] = [.quickAdd, .toggleAllNotesVisibility]
 
-        let registrations: [(AppShortcutAction, GlobalHotKeyService?)] = [
-            (.quickAdd, quickAddHotKeyService),
-            (.toggleAllNotesVisibility, visibilityHotKeyService)
-        ]
-
-        var firstError: String?
-        for (action, service) in registrations {
+        for action in actions {
             let shortcut = settings.shortcut(for: action)
             guard !shortcut.modifiers.isEmpty else {
-                let message = "\(action.title) needs at least one modifier key."
-                firstError = firstError ?? message
+                failures[action] = "This shortcut needs at least one modifier key."
                 continue
             }
-
             do {
-                try service?.register(
-                    keyCode: UInt32(shortcut.keyCode),
-                    modifiers: shortcut.modifiers.carbonValue
-                )
+                let service: any GlobalHotKeyRegistering
+                if action == .quickAdd {
+                    if quickAddHotKeyService == nil {
+                        quickAddHotKeyService = try makeHotKeyService(1)
+                        quickAddHotKeyService?.onPressed = { [weak self] in self?.presentQuickAdd() }
+                    }
+                    guard let quickAddHotKeyService else { continue }
+                    service = quickAddHotKeyService
+                } else {
+                    if visibilityHotKeyService == nil {
+                        visibilityHotKeyService = try makeHotKeyService(2)
+                        visibilityHotKeyService?.onPressed = { [weak self] in self?.toggleAllNotesVisibility() }
+                    }
+                    guard let visibilityHotKeyService else { continue }
+                    service = visibilityHotKeyService
+                }
+                try service.register(keyCode: UInt32(shortcut.keyCode), modifiers: shortcut.modifiers.carbonValue)
+                registrations[action] = shortcut
             } catch {
-                let message = "\(action.title): \(error.localizedDescription)"
-                firstError = firstError ?? message
+                failures[action] = error.localizedDescription
             }
         }
-
-        errorMessage = firstError
-        return firstError
+        registeredGlobalShortcuts = registrations
+        globalShortcutErrors = failures
+        return actions.compactMap { action in failures[action].map { "\(action.title): \($0)" } }.first
     }
 
     func beginShortcutRecording() {
         isRecordingShortcut = true
+        registeredGlobalShortcuts = [:]
         quickAddHotKeyService?.unregister()
         visibilityHotKeyService?.unregister()
     }
@@ -896,18 +983,34 @@ final class WindowCoordinator: ObservableObject {
     }
 
     func saveContext() {
-        guard context.hasChanges else { return }
+        // The persistent issue is intentionally independent of dismissible
+        // Settings alerts and of global shortcut registration errors.
+        try? persistChanges()
+    }
+
+    /// A failed final save must give the user a chance to keep the app open.
+    func prepareForTermination() -> Bool {
         do {
-            try context.save()
+            try persistChanges()
+            return !context.hasChanges
         } catch {
-            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    private func persistChanges() throws {
+        guard context.hasChanges || persistenceError != nil else { return }
+        do {
+            try saveChanges(context)
+            persistenceError = nil
+        } catch {
+            persistenceError = error.localizedDescription
+            throw error
         }
     }
 
     func makeBackupDocument() throws -> MakeTaskBackupDocument {
-        if context.hasChanges {
-            try context.save()
-        }
+        try persistChanges()
         let appVersion = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String ?? "unknown"
@@ -931,9 +1034,7 @@ final class WindowCoordinator: ObservableObject {
         _ document: MakeTaskBackupDocument
     ) throws -> MakeTaskBackupImportResult {
         try document.validate()
-        if context.hasChanges {
-            try context.save()
-        }
+        try persistChanges()
 
         let existingLists = try context.fetch(
             FetchDescriptor<TodoList>(sortBy: [SortDescriptor(\TodoList.sortOrder)])
@@ -1090,101 +1191,128 @@ final class WindowCoordinator: ObservableObject {
     }
 
     private func activeList() -> TodoList? {
+        reconcileActiveList()
         guard let activeListID else { return nil }
-        return fetchLists().first { $0.id == activeListID }
+        return fetchLists().first { $0.id == activeListID && !$0.isHidden }
+    }
+
+    private func reconcileActiveList(
+        excluding excludedID: UUID? = nil,
+        selectFirst: Bool = false,
+        makeKey: Bool = false
+    ) {
+        let visibleLists = fetchLists().filter { !$0.isHidden && $0.id != excludedID }.sorted {
+            if $0.sortOrder != $1.sortOrder { return $0.sortOrder < $1.sortOrder }
+            if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+        if selectFirst || !visibleLists.contains(where: { $0.id == activeListID }) {
+            activeListID = visibleLists.first?.id
+        }
+        // Only transfer keyboard focus if the removed note owned it. Deleting
+        // a list from Quick Add must leave Quick Add focused.
+        if makeKey, let activeListID {
+            noteWindows[activeListID]?.window?.makeKey()
+        }
     }
 
     private func installLocalKeyMonitor() {
         guard localKeyMonitor == nil else { return }
         localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return event }
-            guard !self.isRecordingShortcut else { return event }
+            guard let self, let window = NSApp.keyWindow else { return event }
+            return self.handleLocalKeyEvent(event, in: window)
+        }
+    }
 
-            guard let action = self.settings.action(matching: event), !action.isGlobal else {
-                return event
-            }
+    func handleLocalKeyEvent(_ event: NSEvent, in window: NSWindow) -> NSEvent? {
+        guard !isRecordingShortcut else { return event }
 
-            let quickAddIsKey = self.quickAddWindow?.window?.isKeyWindow == true
-            let notePanelIsKey = !quickAddIsKey
-                && (NSApp.keyWindow is FloatingNotePanel || AppRuntime.isRunningUITests)
-            let isEditingText = NSApp.keyWindow?.firstResponder is NSTextView
-
-            switch action {
-            case .hideCurrentNote:
-                if quickAddIsKey {
-                    self.dismissQuickAdd()
-                    return nil
-                }
-                if notePanelIsKey {
-                    self.hideActiveNote()
-                    return nil
-                }
-            case .collapseCurrentNote where notePanelIsKey:
-                self.collapseActiveNote()
-                return nil
-            case .searchTasks where notePanelIsKey:
-                self.sendKeyboardCommand(.search)
-                return nil
-            case .redo where !quickAddIsKey && !isEditingText:
-                return self.redoLastAction() ? nil : event
-            case .undo where !quickAddIsKey && !isEditingText:
-                return self.undoLastAction() ? nil : event
-            case .renameCurrentList where notePanelIsKey && !isEditingText:
-                self.beginRenamingActiveList()
-                return nil
-            case .toggleCompletedTasks where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.toggleCompletedSection)
-                return nil
-            case .moveTaskToPreviousList where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.moveSelectedTaskToPreviousList)
-                return nil
-            case .moveTaskToNextList where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.moveSelectedTaskToNextList)
-                return nil
-            case .clearCompletedTasks where notePanelIsKey && !isEditingText && !event.isARepeat:
-                self.sendKeyboardCommand(.requestClearCompletedTasks)
-                return nil
-            case .deleteCurrentNote where notePanelIsKey && !event.isARepeat:
-                self.sendKeyboardCommand(.requestListDeletion)
-                return nil
-            case .deleteSelectedTask where notePanelIsKey && !isEditingText && !event.isARepeat:
-                self.sendKeyboardCommand(.deleteSelectedTask)
-                return nil
-            case .selectPreviousTask where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.selectPreviousTask)
-                return nil
-            case .selectNextTask where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.selectNextTask)
-                return nil
-            case .completeSelectedTask where notePanelIsKey && !isEditingText && !event.isARepeat:
-                self.sendKeyboardCommand(.toggleSelectedTask)
-                return nil
-            case .editSelectedTask where notePanelIsKey && !isEditingText && !event.isARepeat:
-                self.sendKeyboardCommand(.editSelectedTask)
-                return nil
-            case .moveSelectedTaskUp where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.moveSelectedTaskUp)
-                return nil
-            case .moveSelectedTaskDown where notePanelIsKey && !isEditingText:
-                self.sendKeyboardCommand(.moveSelectedTaskDown)
-                return nil
-            case .newList where !isEditingText && !event.isARepeat:
-                _ = self.createList()
-                return nil
-            case .newTask where !isEditingText && !event.isARepeat:
-                self.focusNewTaskInActiveNote()
-                return nil
-            case let listAction where !quickAddIsKey && !isEditingText:
-                if let listIndex = listAction.listIndex {
-                    self.activateList(at: listIndex)
-                    return nil
-                }
-            default:
-                break
-            }
-
+        guard let action = settings.action(matching: event), !action.isGlobal else {
             return event
         }
+
+        guard window.attachedSheet == nil, NSApp.modalWindow == nil else { return event }
+        let quickAddIsKey = window === quickAddWindow?.window
+        if quickAddIsKey {
+            if action == .hideCurrentNote && event.modifierFlags.contains(.command) {
+                dismissQuickAdd()
+                return nil
+            }
+            return event
+        }
+        let notePanelIsKey = window is FloatingNotePanel
+            || (AppRuntime.isRunningUITests && window.identifier?.rawValue == "note.ui-test-host")
+        guard notePanelIsKey, NoteKeyboardRouting.allows(action, event: event, in: window) else {
+            return event
+        }
+
+        switch action {
+        case .hideCurrentNote:
+            hideActiveNote()
+            return nil
+        case .collapseCurrentNote:
+            collapseActiveNote()
+            return nil
+        case .searchTasks:
+            sendKeyboardCommand(.search)
+            return nil
+        case .redo:
+            return redoLastAction() ? nil : event
+        case .undo:
+            return undoLastAction() ? nil : event
+        case .renameCurrentList:
+            beginRenamingActiveList()
+            return nil
+        case .toggleCompletedTasks:
+            sendKeyboardCommand(.toggleCompletedSection)
+            return nil
+        case .moveTaskToPreviousList:
+            sendKeyboardCommand(.moveSelectedTaskToPreviousList)
+            return nil
+        case .moveTaskToNextList:
+            sendKeyboardCommand(.moveSelectedTaskToNextList)
+            return nil
+        case .clearCompletedTasks where !event.isARepeat:
+            sendKeyboardCommand(.requestClearCompletedTasks)
+            return nil
+        case .deleteCurrentNote where !event.isARepeat:
+            sendKeyboardCommand(.requestListDeletion)
+            return nil
+        case .deleteSelectedTask where !event.isARepeat:
+            sendKeyboardCommand(.deleteSelectedTask)
+            return nil
+        case .selectPreviousTask:
+            sendKeyboardCommand(.selectPreviousTask)
+            return nil
+        case .selectNextTask:
+            sendKeyboardCommand(.selectNextTask)
+            return nil
+        case .completeSelectedTask where !event.isARepeat:
+            sendKeyboardCommand(.toggleSelectedTask)
+            return nil
+        case .editSelectedTask where !event.isARepeat:
+            sendKeyboardCommand(.editSelectedTask)
+            return nil
+        case .moveSelectedTaskUp:
+            sendKeyboardCommand(.moveSelectedTaskUp)
+            return nil
+        case .moveSelectedTaskDown:
+            sendKeyboardCommand(.moveSelectedTaskDown)
+            return nil
+        case .newList where !event.isARepeat:
+            _ = createList()
+            return nil
+        case .newTask where !event.isARepeat:
+            focusNewTaskInActiveNote()
+            return nil
+        default:
+            if let listIndex = action.listIndex {
+                activateList(at: listIndex)
+                return nil
+            }
+        }
+
+        return event
     }
 
     private func registerUndoAction(
@@ -1367,36 +1495,41 @@ final class WindowCoordinator: ObservableObject {
     }
 
     private func migrateLegacyWindowDefaultsIfNeeded() {
-        let migrationKey = "MakeTask.didMigrateDefaultWindowModeToNormal.v1"
-        let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: migrationKey) else { return }
+        guard !settings.hasMigratedLegacyWindowDefaults else { return }
+        do {
+            // Do not treat a failed fetch as an empty, successfully migrated store.
+            let lists = try context.fetch(FetchDescriptor<TodoList>())
+            for list in lists where list.windowMode == .desktop {
+                list.windowMode = .normal
+            }
+            try persistChanges()
+            settings.hasMigratedLegacyWindowDefaults = true
+        } catch {
+            persistenceError = error.localizedDescription
+        }
+    }
 
-        for list in fetchLists() where list.windowMode == .desktop {
-            list.windowMode = .normal
+    private func refitNoteWindows() {
+        let screens = visibleScreenFrames()
+        for controller in noteWindows.values {
+            controller.fitToScreens(screens, persist: false)
         }
         saveContext()
-        defaults.set(true, forKey: migrationKey)
     }
 
     private func restoredFrame(for list: TodoList) -> NSRect {
+        let screens = visibleScreenFrames()
         let width = max(list.windowWidth, NoteWindowMetrics.minimumWidth)
-        let height = max(list.windowHeight, NoteWindowMetrics.headerHeight + 120)
-
-        if let x = list.windowX, let top = list.windowTop {
-            let candidate = NSRect(x: x, y: top - height, width: width, height: height)
-            if NSScreen.screens.contains(where: { $0.visibleFrame.intersects(candidate) }) {
-                return candidate
-            }
-        }
-
-        let screen = NSScreen.main ?? NSScreen.screens.first
-        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let height = list.isCollapsed ? NoteWindowMetrics.collapsedHeaderHeight
+            : max(list.windowHeight, NoteWindowMetrics.headerHeight + 120)
+        let visible = screens.first ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let cascade = CGFloat(noteWindows.count % 8) * 24
-        return NSRect(
-            x: visible.maxX - width - 24 - cascade,
-            y: visible.maxY - height - 24 - cascade,
+        let candidate = NSRect(
+            x: list.windowX ?? (visible.maxX - width - 24 - cascade),
+            y: (list.windowTop ?? (visible.maxY - 24 - cascade)) - height,
             width: width,
             height: height
         )
+        return NoteScreenGeometry.fit(candidate, to: screens)?.frame ?? candidate
     }
 }

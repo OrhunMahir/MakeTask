@@ -95,7 +95,11 @@ final class LocalBackupService: ObservableObject {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        return try encoder.encode(document)
+        let data = try encoder.encode(document)
+        guard data.count <= MakeTaskBackupDocument.maximumFileSize else {
+            throw MakeTaskBackupError.fileTooLarge
+        }
+        return data
     }
 
     static func decode(contentsOf url: URL) throws -> MakeTaskBackupDocument {

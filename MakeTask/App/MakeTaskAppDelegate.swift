@@ -12,9 +12,20 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
     lazy var windowCoordinator = WindowCoordinator(
         modelContainer: modelContainer,
         settings: settings,
-        launchAtLogin: launchAtLogin
+        launchAtLogin: launchAtLogin,
+        saveChanges: simulatedSaveFailure
     )
     lazy var localBackup = LocalBackupService(coordinator: windowCoordinator)
+
+    private var simulatedSaveFailure: ((ModelContext) throws -> Void)? {
+        #if DEBUG
+        if AppRuntime.isRunningUITests,
+           ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_SAVE_FAILURE"] == "1" {
+            return { _ in throw CocoaError(.fileWriteNoPermission) }
+        }
+        #endif
+        return nil
+    }
 
     override init() {
         do {
@@ -50,6 +61,22 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
 
         guard !AppRuntime.isRunningUnitTests else { return }
         windowCoordinator.start()
+        windowCoordinator.presentWelcomeIfNeeded()
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Commit active field edits before checking the final persistent save.
+        sender.keyWindow?.makeFirstResponder(nil)
+        guard !windowCoordinator.prepareForTermination() else { return .terminateNow }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "MakeTask could not save your changes"
+        alert.informativeText = "Your latest changes have not been saved. Cancel to keep MakeTask open and retry saving. If you quit without saving, those changes will be lost."
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Quit Without Saving")
+        sender.activate(ignoringOtherApps: true)
+        return alert.runModal() == .alertSecondButtonReturn ? .terminateNow : .terminateCancel
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -65,6 +92,11 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
         settings.completionSound = .none
         windowCoordinator.start(registerGlobalShortcuts: false)
 
+        if ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_WELCOME"] == "1" {
+            windowCoordinator.presentWelcomeIfNeeded()
+            return
+        }
+
         let context = modelContainer.mainContext
         let list = TodoList(title: "UI Test List")
         context.insert(list)
@@ -74,6 +106,11 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
         settings.lastQuickCaptureListID = list.id
         windowCoordinator.noteDidBecomeActive(list)
         windowCoordinator.saveContext()
+
+        if ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_NATIVE_NOTES"] == "1" {
+            windowCoordinator.showAndActivate(list)
+            return
+        }
 
         let rootView = UITestHostView()
             .modelContainer(modelContainer)
@@ -85,6 +122,7 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
+        window.identifier = NSUserInterfaceItemIdentifier("note.ui-test-host")
         window.title = "MakeTask UI Tests"
         window.isReleasedWhenClosed = false
         window.level = .floating
