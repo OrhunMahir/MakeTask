@@ -48,10 +48,13 @@ final class WindowCoordinator: ObservableObject {
     @Published private(set) var canRedo = false
     @Published var errorMessage: String?
     @Published private(set) var persistenceError: String?
+    @Published private(set) var widgetError: String?
+    @Published private(set) var widgetTaskToReveal: UUID?
+    var onWidgetRefresh: (() throws -> Void)?
     @Published private(set) var globalShortcutErrors: [AppShortcutAction: String] = [:]
     @Published private(set) var registeredGlobalShortcuts: [AppShortcutAction: AppShortcut] = [:]
 
-    var hasRuntimeIssues: Bool { persistenceError != nil || !globalShortcutErrors.isEmpty }
+    var hasRuntimeIssues: Bool { persistenceError != nil || widgetError != nil || !globalShortcutErrors.isEmpty }
 
     private let context: ModelContext
     private var noteWindows: [UUID: NoteWindowController] = [:]
@@ -1007,6 +1010,82 @@ final class WindowCoordinator: ObservableObject {
             persistenceError = error.localizedDescription
             throw error
         }
+        refreshWidgets()
+    }
+
+    func refreshWidgets() {
+        do {
+            try onWidgetRefresh?()
+            widgetError = nil
+        } catch {
+            widgetError = error.localizedDescription
+        }
+    }
+
+    /// Set an explicit value so repeated delivery cannot flip a completed task back.
+    func setTaskCompletionFromWidget(id: UUID, completed: Bool) throws {
+        try persistChanges()
+        guard let task = fetchTask(id: id), task.list != nil else {
+            refreshWidgets()
+            throw WidgetDataError.missingTask
+        }
+        guard task.isCompleted != completed else { refreshWidgets(); return }
+        let oldCompleted = task.isCompleted
+        let oldDate = task.completedAt
+        let newDate: Date? = completed ? .now : nil
+        task.isCompleted = completed
+        task.completedAt = newDate
+        do {
+            try persistChanges()
+        } catch {
+            // Preserve unrelated edits and leave the persistence warning visible.
+            task.isCompleted = oldCompleted
+            task.completedAt = oldDate
+            throw error
+        }
+        scheduleNextDueDateRefresh()
+        registerUndoAction(named: completed ? "Complete Task" : "Uncomplete Task", undo: { [weak self] in
+            guard let task = self?.fetchTask(id: id) else { return }
+            task.isCompleted = oldCompleted
+            task.completedAt = oldDate
+        }, redo: { [weak self] in
+            guard let task = self?.fetchTask(id: id) else { return }
+            task.isCompleted = completed
+            task.completedAt = newDate
+        })
+    }
+
+    func handleWidgetRoute(_ route: WidgetRoute) {
+        switch route {
+        case .home:
+            if let list = fetchLists().first { showAndActivate(list) }
+            else { presentQuickAdd() }
+        case .add(let id):
+            if let id {
+                guard fetchList(id: id) != nil else { reportMissingWidgetItem(); return }
+                settings.lastQuickCaptureListID = id
+            }
+            // Recreate an already-open Quick Add view so it selects this widget's list.
+            dismissQuickAdd()
+            presentQuickAdd()
+        case .list(let id):
+            guard let list = fetchList(id: id) else { reportMissingWidgetItem(); return }
+            if list.isCollapsed { toggleCollapse(list) }
+            showAndActivate(list)
+        case .task(let id):
+            guard let task = fetchTask(id: id), let list = task.list else { reportMissingWidgetItem(); return }
+            widgetTaskToReveal = id
+            if task.isCompleted { list.isCompletedSectionCollapsed = false }
+            if list.isCollapsed { toggleCollapse(list) }
+            showAndActivate(list)
+        }
+    }
+
+    private func reportMissingWidgetItem() {
+        refreshWidgets()
+        errorMessage = WidgetDataError.missingTask.localizedDescription
+        if let list = fetchLists().first { showAndActivate(list) }
+        else { presentQuickAdd() }
     }
 
     func makeBackupDocument() throws -> MakeTaskBackupDocument {

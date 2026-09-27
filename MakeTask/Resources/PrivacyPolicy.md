@@ -1,6 +1,6 @@
 # MakeTask Privacy Policy
 
-Last updated: September 12, 2026
+Last updated: September 26, 2026
 
 ## Your tasks stay on your Mac
 
@@ -9,6 +9,10 @@ MakeTask does not collect or transmit your lists, tasks, notes, subtasks, due da
 ## Local storage
 
 Lists and tasks are stored in the app's local sandbox using Apple's SwiftData framework. Preferences, such as appearance and keyboard shortcuts, are saved locally using UserDefaults. These preferences are used only to make the app work as you configure it.
+
+## Widgets
+
+If you add a MakeTask widget, the app keeps a local copy of list names, task titles, completion states, priorities, and due dates in a shared container accessible to MakeTask and its widget extension. This copy lets the widget display your lists; it is not uploaded. Task notes and subtask details are not included in the widget copy. Widget completion actions update the same local task database through MakeTask.
 
 ## Backups you choose
 

@@ -60,6 +60,12 @@ private struct RuntimeIssueDetails: View {
                     }
                 }
             }
+            if let message = coordinator.widgetError {
+                Divider()
+                Text("Widget could not refresh").font(.headline)
+                Text(message).foregroundStyle(.secondary)
+                Button("Retry Widget Refresh") { coordinator.refreshWidgets() }
+            }
             if !coordinator.hasRuntimeIssues {
                 Label("All issues resolved", systemImage: "checkmark.circle")
             }

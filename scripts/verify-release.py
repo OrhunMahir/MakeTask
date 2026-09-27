@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check the built macOS bundle before distribution; never uploads anything."""
 import argparse
+import json
 import plistlib
 import re
 import subprocess
@@ -48,6 +49,26 @@ def main():
     architectures = subprocess.check_output(["lipo", "-archs", str(executable)], text=True).split()
     check({"arm64", "x86_64"}.issubset(architectures), "Release must include Apple silicon and Intel architectures")
 
+    widget = contents / "PlugIns" / "MakeTaskWidgets.appex"
+    widget_contents = widget / "Contents"
+    widget_info_path = widget_contents / "Info.plist"
+    check(widget_info_path.is_file(), "MakeTask widget extension is missing")
+    if widget_info_path.is_file():
+        widget_info = plistlib.loads(widget_info_path.read_bytes())
+        check(widget_info.get("CFBundleIdentifier") == info["CFBundleIdentifier"] + ".Widgets", "Unexpected widget identifier")
+        check(widget_info.get("NSExtension", {}).get("NSExtensionPointIdentifier") == "com.apple.widgetkit-extension", "Invalid widget extension point")
+        for key in ("CFBundleShortVersionString", "CFBundleVersion", "MakeTaskWidgetAppGroup", "MakeTaskURLScheme"):
+            check(widget_info.get(key) == info.get(key) and bool(info.get(key)), f"App/widget {key} mismatch")
+        widget_executable = widget_contents / "MacOS" / widget_info["CFBundleExecutable"]
+        widget_archs = subprocess.check_output(["lipo", "-archs", str(widget_executable)], text=True).split()
+        check({"arm64", "x86_64"}.issubset(widget_archs), "Widget must include Apple silicon and Intel architectures")
+        check((widget_contents / "Resources" / "PrivacyInfo.xcprivacy").is_file(), "Widget privacy manifest is missing")
+        metadata_path = resources / "Metadata.appintents" / "extract.actionsdata"
+        check(metadata_path.is_file(), "Host App Intent metadata is missing")
+        if metadata_path.is_file():
+            intent = json.loads(metadata_path.read_text()).get("actions", {}).get("SetWidgetTaskCompletion", {})
+            check("com.apple.link.systemProtocol.ForegroundContinuable" in intent.get("systemProtocols", []), "Widget completion must execute in the app")
+
     signature = subprocess.run(["codesign", "-dv", "--verbose=4", str(args.app)], capture_output=True, text=True)
     signed_for_distribution = signature.returncode == 0 and any(
         marker in signature.stderr for marker in ("Authority=Apple Distribution:", "Authority=3rd Party Mac Developer Application:")
@@ -70,6 +91,20 @@ def main():
         check(entitlements.get("com.apple.security.files.user-selected.read-write") is True, "Selected-file access entitlement is missing")
         check(not entitlements.get("com.apple.security.network.client", False), "Unexpected outgoing network entitlement")
         check(not entitlements.get("com.apple.security.get-task-allow", False), "Release allows debugger attachment")
+        group = info.get("MakeTaskWidgetAppGroup")
+        check(group in entitlements.get("com.apple.security.application-groups", []), "App Group entitlement does not match widget configuration")
+        if widget_info_path.is_file():
+            result = subprocess.run(["codesign", "--verify", "--strict", "--all-architectures", str(widget)], capture_output=True, text=True)
+            check(result.returncode == 0, "Widget signature verification failed: " + result.stderr.strip())
+            result = subprocess.run(["codesign", "-d", "--entitlements", ":-", str(widget)], capture_output=True)
+            try:
+                widget_entitlements = plistlib.loads(result.stdout)
+            except plistlib.InvalidFileException:
+                widget_entitlements = {}
+            check(widget_entitlements.get("com.apple.security.app-sandbox") is True, "Widget sandbox entitlement is missing")
+            check(group in widget_entitlements.get("com.apple.security.application-groups", []), "Widget App Group entitlement is missing")
+            check(not widget_entitlements.get("com.apple.security.network.client", False), "Unexpected widget network entitlement")
+            check(not widget_entitlements.get("com.apple.security.get-task-allow", False), "Release widget allows debugger attachment")
     if args.require_distribution:
         check(signed_for_distribution, "An App Store distribution signature is required")
         check((contents / "embedded.provisionprofile").is_file(), "App Store provisioning profile is missing")

@@ -6,6 +6,22 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+        D10000000000000000000010 /* MakeTaskWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+        D10000000000000000000011 /* Embed App Extensions */ = {
+            isa = PBXCopyFilesBuildPhase;
+            buildActionMask = 2147483647;
+            dstPath = "";
+            dstSubfolderSpec = 13;
+            files = (D10000000000000000000010, );
+            name = "Embed App Extensions";
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXContainerItemProxy section */
 		B10000000000000000000009 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,12 +37,14 @@
 			remoteGlobalIDString = A10000000000000000000006;
 			remoteInfo = MakeTask;
 		};
+        D10000000000000000000009 = {isa = PBXContainerItemProxy; containerPortal = A1000000000000000000000A; proxyType = 1; remoteGlobalIDString = D10000000000000000000006; remoteInfo = MakeTaskWidgets; };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000001 /* MakeTask.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MakeTask.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000000000000000000001 /* MakeTaskTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MakeTaskTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C10000000000000000000001 /* MakeTaskUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MakeTaskUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+        D10000000000000000000001 /* MakeTaskWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MakeTaskWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -45,6 +63,8 @@
 			path = MakeTaskUITests;
 			sourceTree = "<group>";
 		};
+        D10000000000000000000002 /* MakeTaskWidgets */ = {isa = PBXFileSystemSynchronizedRootGroup; path = MakeTaskWidgets; sourceTree = "<group>"; };
+        E10000000000000000000002 /* WidgetShared */ = {isa = PBXFileSystemSynchronizedRootGroup; path = WidgetShared; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +89,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+        D10000000000000000000003 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -78,7 +99,9 @@
 				A10000000000000000000002 /* MakeTask */,
 				B10000000000000000000002 /* MakeTaskTests */,
 				C10000000000000000000002 /* MakeTaskUITests */,
-				A10000000000000000000005 /* Products */,
+				D10000000000000000000002 /* MakeTaskWidgets */,
+                E10000000000000000000002 /* WidgetShared */,
+                A10000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
@@ -88,6 +111,7 @@
 				A10000000000000000000001 /* MakeTask.app */,
 				B10000000000000000000001 /* MakeTaskTests.xctest */,
 				C10000000000000000000001 /* MakeTaskUITests.xctest */,
+                D10000000000000000000001 /* MakeTaskWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -102,13 +126,16 @@
 				A10000000000000000000008 /* Sources */,
 				A10000000000000000000003 /* Frameworks */,
 				A10000000000000000000009 /* Resources */,
+                D10000000000000000000011 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+                D10000000000000000000008,
 			);
 			fileSystemSynchronizedGroups = (
 				A10000000000000000000002 /* MakeTask */,
+                E10000000000000000000002 /* WidgetShared */,
 			);
 			name = MakeTask;
 			packageProductDependencies = (
@@ -163,6 +190,19 @@
 			productReference = C10000000000000000000001 /* MakeTaskUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+        D10000000000000000000006 /* MakeTaskWidgets */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = D10000000000000000000007;
+            buildPhases = (D10000000000000000000004, D10000000000000000000003, D10000000000000000000005, );
+            buildRules = ();
+            dependencies = ();
+            fileSystemSynchronizedGroups = (D10000000000000000000002, E10000000000000000000002, );
+            name = MakeTaskWidgets;
+            packageProductDependencies = ();
+            productName = MakeTaskWidgets;
+            productReference = D10000000000000000000001;
+            productType = "com.apple.product-type.app-extension";
+        };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -203,6 +243,7 @@
 				A10000000000000000000006 /* MakeTask */,
 				B10000000000000000000006 /* MakeTaskTests */,
 				C10000000000000000000006 /* MakeTaskUITests */,
+                D10000000000000000000006 /* MakeTaskWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -229,6 +270,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+        D10000000000000000000005 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -253,6 +295,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+        D10000000000000000000004 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -266,6 +309,7 @@
 			target = A10000000000000000000006 /* MakeTask */;
 			targetProxy = C10000000000000000000009 /* PBXContainerItemProxy */;
 		};
+        D10000000000000000000008 = {isa = PBXTargetDependency; target = D10000000000000000000006; targetProxy = D10000000000000000000009; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -273,6 +317,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+                MAKETASK_BUNDLE_IDENTIFIER = dev.orhun.MakeTask;
+                MAKETASK_URL_SCHEME = maketask;
+                MAKETASK_WIDGET_GROUP = "$(DEVELOPMENT_TEAM).dev.orhun.MakeTask.shared";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
@@ -323,6 +370,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+                MAKETASK_BUNDLE_IDENTIFIER = dev.orhun.MakeTask;
+                MAKETASK_URL_SCHEME = maketask;
+                MAKETASK_WIDGET_GROUP = "$(DEVELOPMENT_TEAM).dev.orhun.MakeTask.shared";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
@@ -366,8 +416,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                CODE_SIGN_ENTITLEMENTS = Config/MakeTask.entitlements;
+                INFOPLIST_FILE = "Config/MakeTask-Info.plist";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
@@ -379,8 +431,8 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 MakeTask contributors.";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.orhun.MakeTask;
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(MAKETASK_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -393,8 +445,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                CODE_SIGN_ENTITLEMENTS = Config/MakeTask.entitlements;
+                INFOPLIST_FILE = "Config/MakeTask-Info.plist";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
@@ -406,8 +460,8 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 MakeTask contributors.";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.orhun.MakeTask;
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(MAKETASK_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -478,6 +532,60 @@
 			};
 			name = Release;
 		};
+        D1000000000000000000000A /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                APPLICATION_EXTENSION_API_ONLY = YES;
+                CODE_SIGN_ENTITLEMENTS = Config/MakeTaskWidgets.entitlements;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 5;
+                ENABLE_APP_SANDBOX = YES;
+                ENABLE_HARDENED_RUNTIME = YES;
+                ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_FILE = "Config/MakeTaskWidgets-Info.plist";
+                INFOPLIST_KEY_CFBundleDisplayName = MakeTask;
+                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@executable_path/../../../../Frameworks", );
+                MACOSX_DEPLOYMENT_TARGET = 14.0;
+                MARKETING_VERSION = 1.1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = "$(MAKETASK_BUNDLE_IDENTIFIER).Widgets";
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SDKROOT = macosx;
+                SKIP_INSTALL = YES;
+                SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) WIDGET_EXTENSION";
+                SWIFT_EMIT_LOC_STRINGS = YES;
+                SWIFT_STRICT_CONCURRENCY = minimal;
+                SWIFT_VERSION = 5.0;
+            };
+            name = Debug;
+        };
+        D1000000000000000000000B /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                APPLICATION_EXTENSION_API_ONLY = YES;
+                CODE_SIGN_ENTITLEMENTS = Config/MakeTaskWidgets.entitlements;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 5;
+                ENABLE_APP_SANDBOX = YES;
+                ENABLE_HARDENED_RUNTIME = YES;
+                ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_FILE = "Config/MakeTaskWidgets-Info.plist";
+                INFOPLIST_KEY_CFBundleDisplayName = MakeTask;
+                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@executable_path/../../../../Frameworks", );
+                MACOSX_DEPLOYMENT_TARGET = 14.0;
+                MARKETING_VERSION = 1.1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = "$(MAKETASK_BUNDLE_IDENTIFIER).Widgets";
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SDKROOT = macosx;
+                SKIP_INSTALL = YES;
+                SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) WIDGET_EXTENSION";
+                SWIFT_EMIT_LOC_STRINGS = YES;
+                SWIFT_STRICT_CONCURRENCY = minimal;
+                SWIFT_VERSION = 5.0;
+            };
+            name = Release;
+        };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -517,6 +625,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+        D10000000000000000000007 = {isa = XCConfigurationList; buildConfigurations = (D1000000000000000000000A, D1000000000000000000000B, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = A1000000000000000000000A /* Project object */;

@@ -39,7 +39,7 @@ struct NoteView: View {
     }
 
     private var visibleCompletedTasks: [TodoTask] {
-        settings.hideCompletedTasks ? [] : completedTasks
+        settings.hideCompletedTasks ? completedTasks.filter { $0.id == coordinator.widgetTaskToReveal } : completedTasks
     }
 
     private var taskOrderAnimationValue: [UUID] {
@@ -187,6 +187,13 @@ struct NoteView: View {
         .onReceive(coordinator.$focusNewTaskListID) { listID in
             guard listID == list.id, !list.isCollapsed else { return }
             isNewTaskFocused = true
+        }
+        .onReceive(coordinator.$widgetTaskToReveal) { taskID in
+            guard let taskID, list.tasks.contains(where: { $0.id == taskID }) else { return }
+            searchText = ""
+            selectedTaskID = taskID
+            expandedTaskID = taskID
+            isNewTaskFocused = false
         }
         .onReceive(coordinator.$noteKeyboardCommand) { event in
             guard let event, event.listID == list.id else { return }

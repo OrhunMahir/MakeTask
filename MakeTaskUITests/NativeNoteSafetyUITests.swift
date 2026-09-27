@@ -23,6 +23,32 @@ final class NativeNoteSafetyUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Complete Alpha Task"].waitForExistence(timeout: 5))
     }
 
+    func testWidgetTaskRouteRevealsCompletedTaskDetailsInCollapsedNote() {
+        app.launchEnvironment["MAKETASK_UI_TEST_WIDGET_ROUTE"] = "task"
+        app.launch()
+        app.activate()
+        XCTAssertTrue(app.textViews["task.notes"].waitForExistence(timeout: 5),
+                      "A widget link must expose details even when completed tasks are hidden")
+        XCTAssertTrue(app.buttons["Mark Alpha Task incomplete"].exists)
+    }
+
+    func testWidgetAddRouteCreatesTaskInSelectedHiddenList() {
+        app.launchEnvironment["MAKETASK_UI_TEST_WIDGET_ROUTE"] = "add"
+        app.launch()
+        app.activate()
+        let field = app.textFields["quick-add.task-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.click()
+        field.typeText("New task")
+        XCTAssertEqual(field.value as? String, "New task")
+        field.typeKey(.return, modifierFlags: [])
+        XCTAssertTrue(field.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Complete New task"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "value CONTAINS %@", "Widget Target")).firstMatch.exists)
+        XCTAssertFalse(app.buttons["Complete Alpha Task"].exists,
+                       "Quick Add must reveal the selected widget list, not the previous default")
+    }
+
     func testLongTitleKeepsItsLayoutOnHoverAndWhileEditing() {
         launch()
         let longTitle = "Prepare the next release and read user feedback before launch. Keep every task clear and easy to follow."

@@ -38,6 +38,13 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
         settings = AppSettings(defaults: AppRuntime.makeSettingsDefaults())
         launchAtLogin = LaunchAtLoginService()
         super.init()
+        if !AppRuntime.isRunningTests {
+            WidgetActionDispatcher.coordinator = windowCoordinator
+            windowCoordinator.onWidgetRefresh = { [weak self] in
+                guard let self else { return }
+                try WidgetBridge.publish(context: self.modelContainer.mainContext)
+            }
+        }
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -62,6 +69,14 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
         guard !AppRuntime.isRunningUnitTests else { return }
         windowCoordinator.start()
         windowCoordinator.presentWelcomeIfNeeded()
+        windowCoordinator.refreshWidgets()
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            guard let route = WidgetRoute(url: url) else { continue }
+            windowCoordinator.handleWidgetRoute(route)
+        }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -108,7 +123,24 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
         windowCoordinator.saveContext()
 
         if ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_NATIVE_NOTES"] == "1" {
-            windowCoordinator.showAndActivate(list)
+            switch ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_WIDGET_ROUTE"] {
+            case "task":
+                let task = list.orderedTasks[0]
+                task.isCompleted = true
+                task.completedAt = .now
+                list.isCollapsed = true
+                list.isCompletedSectionCollapsed = true
+                settings.hideCompletedTasks = true
+                windowCoordinator.saveContext()
+                windowCoordinator.handleWidgetRoute(.task(task.id))
+            case "add":
+                let target = TodoList(title: "Widget Target", isHidden: true)
+                context.insert(target)
+                windowCoordinator.saveContext()
+                windowCoordinator.handleWidgetRoute(.add(target.id))
+            default:
+                windowCoordinator.showAndActivate(list)
+            }
             return
         }
 

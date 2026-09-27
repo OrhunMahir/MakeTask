@@ -1,0 +1,8 @@
+Your tasks, now in Notification Center.
+
+• Add small, medium, or large MakeTask widgets and choose a list for each one.
+• Complete tasks directly from your widget, with an option to show completed tasks.
+• Use New task to open Quick Add for the selected list.
+• Open task details or the full list from your widget.
+
+Your tasks stay on your Mac, with no account required.

@@ -165,3 +165,7 @@ GitHub Actions also builds the Release app and runs the unit-test suite on every
 ## Contributing
 
 Issues and pull requests are welcome. Keep the dependency-free, local-first design unless a proposal demonstrates a clear user benefit that cannot be achieved with Apple frameworks.
+
+## Widget extension
+
+See [Notification Center widgets](WIDGETS.md) for supported interactions, shared-container setup, isolated signed builds, and release checks.

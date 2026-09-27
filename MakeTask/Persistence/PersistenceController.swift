@@ -10,7 +10,9 @@ enum PersistenceController {
         let configuration = ModelConfiguration(
             "MakeTask",
             schema: schema,
-            isStoredInMemoryOnly: inMemory
+            isStoredInMemoryOnly: inMemory,
+            // Adding App Groups must not move the existing 1.0.1 store.
+            groupContainer: .none
         )
         return try ModelContainer(for: schema, configurations: [configuration])
     }
