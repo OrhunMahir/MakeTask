@@ -1,15 +1,7 @@
-MakeTask 1.1.0 adds a macOS WidgetKit extension. The app requires macOS 14 or later.
+MakeTask 1.1.0 adds Notification Center widgets on macOS 14 or later. No account or demo credentials are required.
 
-MakeTask is a menu-bar app with independent desktop notes. No account, subscription, server, or demo credentials are required. Existing local tasks remain in the same app database. The widget reads a local snapshot in an App Group; completion actions execute in the main app and update that database.
+To test: launch MakeTask, create a list and add tasks. Open Notification Center > Edit Widgets, search for MakeTask and add a widget. Edit it to choose a list and optionally show completed tasks. Click a task circle to complete or uncomplete it, including after quitting MakeTask. Click New task to open Quick Add for that list. Click a task title to open its details.
 
-To review the widget:
-1. Launch MakeTask, create a list, and add a few tasks.
-2. Open Notification Center by clicking the date/time, choose Edit Widgets, search for MakeTask, and add a small, medium, or large widget.
-3. Edit the widget to select a list and optionally show completed tasks.
-4. Click a task's circle to complete or uncomplete it. Repeat with MakeTask quit to test background launch.
-5. Click New task to open Quick Add with that list selected, enter a title, and press Return.
-6. Click a task title to open its details in MakeTask, or the widget's list title to open the full note.
+Text entry opens the app window. Widgets read a local shared snapshot; completion updates the existing local app database. No analytics, tracking, servers or cloud sync are used. Existing task data remains in the same app container.
 
-Text entry and editing open the corresponding app window; they do not take place inside WidgetKit. Widget refresh timing is controlled by macOS.
-
-The app collects no data and has no analytics or tracking. The privacy policy is available offline in Settings > About. Notifications are not required for widget use.
+MakeTask lives in the menu bar without a permanent Dock icon. The welcome window lets new users create their first list. Settings > About contains the offline privacy policy.

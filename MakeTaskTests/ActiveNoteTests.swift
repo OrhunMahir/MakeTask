@@ -1,9 +1,48 @@
 import AppKit
+import SwiftData
 import XCTest
 @testable import MakeTask
 
 @MainActor
 final class ActiveNoteTests: XCTestCase {
+    func testVisibilityToggleWithNoListsDoesNotOpenQuickAdd() throws {
+        let environment = try TestEnvironment()
+        defer {
+            environment.coordinator.dismissQuickAdd()
+            environment.coordinator.hideAll()
+            environment.coordinator.stop()
+            environment.cleanUp()
+        }
+        let visibleWindows = Set(NSApp.windows.filter(\.isVisible).map(ObjectIdentifier.init))
+
+        environment.coordinator.toggleAllNotesVisibility()
+
+        XCTAssertTrue(try environment.container.mainContext.fetch(FetchDescriptor<TodoList>()).isEmpty)
+        XCTAssertEqual(Set(NSApp.windows.filter(\.isVisible).map(ObjectIdentifier.init)), visibleWindows)
+    }
+
+    func testVisibilityToggleHidesAndRestoresExistingNotesWithoutQuickAdd() throws {
+        let environment = try TestEnvironment()
+        defer {
+            environment.coordinator.dismissQuickAdd()
+            environment.coordinator.hideAll()
+            environment.coordinator.stop()
+            environment.cleanUp()
+        }
+        let list = TodoList(title: "Keep this list")
+        environment.container.mainContext.insert(list)
+        environment.coordinator.show(list)
+
+        environment.coordinator.toggleAllNotesVisibility()
+        XCTAssertTrue(list.isHidden)
+        XCTAssertFalse(NSApp.windows.contains { $0.isVisible && $0.windowController is QuickAddWindowController })
+
+        environment.coordinator.toggleAllNotesVisibility()
+        XCTAssertFalse(list.isHidden)
+        XCTAssertEqual(try environment.container.mainContext.fetch(FetchDescriptor<TodoList>()).map(\.id), [list.id])
+        XCTAssertFalse(NSApp.windows.contains { $0.isVisible && $0.windowController is QuickAddWindowController })
+    }
+
     func testHideSelectsVisibleReplacementAndCommandsTargetIt() throws {
         let environment = try TestEnvironment()
         defer { environment.cleanUp() }

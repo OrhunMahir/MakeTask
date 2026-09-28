@@ -443,10 +443,8 @@ final class WindowCoordinator: ObservableObject {
 
     func toggleAllNotesVisibility() {
         let lists = fetchLists()
-        guard !lists.isEmpty else {
-            presentQuickAdd()
-            return
-        }
+        // Visibility shortcuts must not open a creation window, even in an empty store.
+        guard !lists.isEmpty else { return }
 
         if lists.allSatisfy({ !$0.isHidden }) {
             hideAll()
