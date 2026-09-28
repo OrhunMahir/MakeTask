@@ -5,3 +5,5 @@ To test: launch MakeTask, create a list and add tasks. Open Notification Center 
 Text entry opens the app window. Widgets read a local shared snapshot; completion updates the existing local app database. No analytics, tracking, servers or cloud sync are used. Existing task data remains in the same app container.
 
 MakeTask lives in the menu bar without a permanent Dock icon. The welcome window lets new users create their first list. Settings > About contains the offline privacy policy.
+
+Build 6 replaces build 5 with a keyboard-shortcut fix: Command-Shift-H only hides or shows existing notes and does nothing when no lists exist. Command-Shift-N creates a list; Command-Shift-Space opens Quick Add.
