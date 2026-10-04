@@ -431,6 +431,21 @@ final class WindowCoordinator: ObservableObject {
         }
     }
 
+    func revealNotesFromAppIcon() {
+        if fetchLists().isEmpty {
+            if settings.hasCompletedWelcome {
+                presentQuickAdd()
+            } else {
+                dismissQuickAdd()
+                presentWelcome()
+            }
+            return
+        }
+        // Existing users skip onboarding, even if every note was hidden.
+        presentWelcomeIfNeeded()
+        showAll()
+    }
+
     func hideAll() {
         let lists = fetchLists()
         // Mark the whole batch first so key-window callbacks cannot select a

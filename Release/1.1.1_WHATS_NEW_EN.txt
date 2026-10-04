@@ -1,0 +1,5 @@
+MakeTask is now easy to find in your Dock.
+
+Click the Dock icon to bring all your notes back, including hidden notes. Your note positions and collapsed layouts stay just as you left them.
+
+The menu bar and your existing keyboard shortcuts are still available.

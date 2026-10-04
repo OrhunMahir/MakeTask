@@ -1,10 +1,32 @@
 import AppKit
+import Carbon
 import SwiftData
 import XCTest
 @testable import MakeTask
 
 @MainActor
 final class RuntimeIssueTests: XCTestCase {
+    func testOnlyExplicitAppOpenEventsRevealNotes() {
+        func event(_ id: AEEventID, launchReason: OSType? = nil) -> NSAppleEventDescriptor {
+            let event = NSAppleEventDescriptor(eventClass: AEEventClass(kCoreEventClass), eventID: id,
+                                              targetDescriptor: nil, returnID: AEReturnID(kAutoGenerateReturnID),
+                                              transactionID: AETransactionID(kAnyTransactionID))
+            if let launchReason {
+                event.setParam(NSAppleEventDescriptor(enumCode: launchReason), forKeyword: AEKeyword(keyAEPropData))
+            }
+            return event
+        }
+        XCTAssertTrue(AppRuntime.shouldRevealNotes(for: event(AEEventID(kAEOpenApplication))))
+        XCTAssertTrue(AppRuntime.shouldRevealNotes(for: event(AEEventID(kAEReopenApplication))))
+        XCTAssertFalse(AppRuntime.shouldRevealNotes(for: event(AEEventID(kAEOpenApplication), launchReason: OSType(keyAELaunchedAsLogInItem))))
+        XCTAssertFalse(AppRuntime.shouldRevealNotes(for: event(AEEventID(kAEOpenApplication), launchReason: OSType(keyAELaunchedAsServiceItem))))
+        XCTAssertFalse(AppRuntime.shouldRevealNotes(for: event(AEEventID(kAEOpenDocuments))))
+        let widgetURL = NSAppleEventDescriptor(eventClass: AEEventClass(kInternetEventClass), eventID: AEEventID(kAEGetURL),
+                                              targetDescriptor: nil, returnID: AEReturnID(kAutoGenerateReturnID),
+                                              transactionID: AETransactionID(kAnyTransactionID))
+        XCTAssertFalse(AppRuntime.shouldRevealNotes(for: widgetURL))
+    }
+
     private final class HotKey: GlobalHotKeyRegistering {
         var onPressed: (() -> Void)?
         var fails = false
@@ -15,6 +37,58 @@ final class RuntimeIssueTests: XCTestCase {
             isRegistered = true
         }
         func unregister() { isRegistered = false }
+    }
+
+    func testPreviewDoesNotRegisterShortcutsOnStartupOrSettingsReload() throws {
+        XCTAssertTrue(AppRuntime.supportsGlobalShortcuts(bundleIdentifier: "dev.orhun.MakeTask"))
+        XCTAssertFalse(AppRuntime.supportsGlobalShortcuts(bundleIdentifier: nil))
+        let previewSupportsShortcuts = AppRuntime.supportsGlobalShortcuts(
+            bundleIdentifier: "dev.orhun.MakeTask.WidgetPreview"
+        )
+        XCTAssertFalse(previewSupportsShortcuts)
+        var requestedIdentifiers: [UInt32] = []
+        let environment = try TestEnvironment(makeHotKeyService: { identifier in
+            requestedIdentifiers.append(identifier)
+            return HotKey()
+        })
+        defer { environment.coordinator.stop(); environment.cleanUp() }
+
+        environment.coordinator.start(registerGlobalShortcuts: previewSupportsShortcuts)
+        XCTAssertNil(environment.coordinator.reloadGlobalShortcuts())
+        environment.coordinator.beginShortcutRecording()
+        XCTAssertNil(environment.coordinator.endShortcutRecording())
+
+        XCTAssertTrue(requestedIdentifiers.isEmpty)
+        XCTAssertNil(environment.coordinator.globalShortcutDescription(for: .quickAdd))
+        XCTAssertNil(environment.coordinator.globalShortcutDescription(for: .toggleAllNotesVisibility))
+    }
+
+    func testRegisteredVisibilityShortcutRepeatedlyTogglesNotesWithoutOpeningQuickAdd() throws {
+        let quickAdd = HotKey()
+        let visibility = HotKey()
+        let environment = try TestEnvironment(makeHotKeyService: { $0 == 1 ? quickAdd : visibility })
+        defer {
+            environment.coordinator.dismissQuickAdd()
+            environment.coordinator.hideAll()
+            environment.coordinator.stop()
+            environment.cleanUp()
+        }
+        environment.coordinator.start()
+        XCTAssertTrue(visibility.isRegistered)
+        let pressVisibility = try XCTUnwrap(visibility.onPressed)
+        let existingWindows = Set(NSApp.windows.filter(\.isVisible).map(ObjectIdentifier.init))
+        for _ in 0..<6 { pressVisibility() }
+        XCTAssertEqual(Set(NSApp.windows.filter(\.isVisible).map(ObjectIdentifier.init)), existingWindows)
+
+        let list = TodoList(title: "Shortcut regression")
+        environment.container.mainContext.insert(list)
+        environment.coordinator.show(list)
+        for press in 0..<6 {
+            pressVisibility()
+            XCTAssertEqual(list.isHidden, press.isMultiple(of: 2))
+            XCTAssertFalse(NSApp.windows.contains { $0.isVisible && $0.windowController is QuickAddWindowController })
+        }
+        XCTAssertEqual(try environment.container.mainContext.fetch(FetchDescriptor<TodoList>()).map(\.id), [list.id])
     }
 
     func testSaveFailureStaysVisibleUntilSuccessfulRetry() throws {

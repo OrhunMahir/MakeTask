@@ -23,6 +23,45 @@ final class NativeNoteSafetyUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Complete Alpha Task"].waitForExistence(timeout: 5))
     }
 
+    func testDockClickRevealsHiddenNotesAndRepeatedClicksKeepThemVisible() throws {
+        app.launchEnvironment["MAKETASK_UI_TEST_DOCK"] = "1"
+        launch()
+        let hiddenTask = app.buttons["Complete Dock Hidden Task"]
+        XCTAssertFalse(hiddenTask.exists)
+        let dock = XCUIApplication(bundleIdentifier: "com.apple.dock")
+        // macOS exposes Dock names as titles, not accessibility labels.
+        let icons = dock.descendants(matching: .dockItem).matching(NSPredicate(format: "title == %@", app.title))
+        let icon = icons.firstMatch
+        XCTAssertTrue(icon.waitForExistence(timeout: 5), dock.debugDescription)
+        XCTAssertEqual(icons.count, 1, "The test app must have an unambiguous Dock item")
+        icon.click()
+        XCTAssertTrue(hiddenTask.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Complete Alpha Task"].exists)
+        icon.click()
+        XCTAssertTrue(hiddenTask.exists)
+        XCTAssertTrue(app.buttons["Complete Alpha Task"].exists)
+
+        app.menuBars.menuBarItems["Note"].click()
+        app.menuItems["Show or Hide All Notes"].click()
+        XCTAssertTrue(hiddenTask.waitForNonExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Complete Alpha Task"].exists)
+        app.activate()
+        XCTAssertFalse(hiddenTask.exists, "Activation alone must not reveal hidden notes")
+        icon.click()
+        XCTAssertTrue(hiddenTask.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Complete Alpha Task"].exists)
+        XCTAssertFalse(app.textFields["quick-add.list-name-field"].exists)
+    }
+
+    func testManualLaunchRevealsPreviouslyHiddenNotes() {
+        app.launchEnvironment["MAKETASK_UI_TEST_DOCK"] = "1"
+        app.launchEnvironment["MAKETASK_UI_TEST_APP_OPEN"] = "1"
+        launch()
+        XCTAssertTrue(app.buttons["Complete Dock Hidden Task"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["quick-add.list-name-field"].exists)
+        XCTAssertFalse(app.textFields["welcome.list-name"].exists)
+    }
+
     func testWidgetTaskRouteRevealsCompletedTaskDetailsInCollapsedNote() {
         app.launchEnvironment["MAKETASK_UI_TEST_WIDGET_ROUTE"] = "task"
         app.launch()

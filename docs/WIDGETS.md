@@ -32,6 +32,8 @@ xcodebuild -project MakeTask.xcodeproj -scheme MakeTask \
 
 Use this separate bundle, URL scheme, and shared container when testing alongside an installed App Store copy. Do not launch an unsigned development build against the real user's store.
 
+Only the production bundle (`dev.orhun.MakeTask`) registers global keyboard shortcuts. Preview copies use the menu commands so that they cannot intercept the installed app's shortcuts. Quit or rebuild older preview copies that predate this isolation; changing the production app cannot unregister another running process's shortcuts.
+
 ## Data and execution
 
 - The existing SwiftData store stays in the app sandbox. `groupContainer: .none` is explicit so adding the App Group entitlement cannot silently select an empty group database on upgrade.

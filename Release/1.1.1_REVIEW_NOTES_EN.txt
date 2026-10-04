@@ -1,0 +1,9 @@
+MakeTask 1.1.1 adds a persistent Dock icon while the app is running. No account or demo credentials are required.
+
+To test: launch MakeTask and create a list. Add another list using Command-Shift-N. Hide the notes with Note > Show or Hide All Notes, then click MakeTask in the Dock. All notes reappear. Clicking the Dock icon again keeps them visible, preserving note positions and collapsed layouts.
+
+Command-Shift-H continues to toggle existing notes; with no lists it does nothing. Command-Shift-Space opens Quick Add. The menu bar and Notification Center widgets remain available.
+
+When no lists exist, an explicit app launch or Dock click shows the welcome screen on first use, or New List after onboarding. Login-item and service launches do not reveal hidden notes. Widget links continue to open the selected list or task.
+
+Task data remains local in the existing app container. No analytics, tracking, accounts, servers or cloud sync are used. Settings > About contains the offline privacy policy.

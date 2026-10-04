@@ -50,7 +50,7 @@ private struct WelcomeView: View {
             }
 
             VStack(alignment: .leading, spacing: 14) {
-                Label("Find MakeTask in your menu bar, even when your notes are hidden.", systemImage: "menubar.rectangle")
+                Label("Click MakeTask in the Dock to bring back hidden notes.", systemImage: "menubar.rectangle")
                 Label("Keep a separate desktop note for each list.", systemImage: "rectangle.on.rectangle")
                 Label("Your tasks stay on this Mac. No account needed.", systemImage: "lock")
             }

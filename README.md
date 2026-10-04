@@ -28,7 +28,7 @@ Keep your tasks in view with colorful desktop notes for work, personal projects,
 2. **Add a few tasks.** Click a task title for details, or its circle to mark it complete.
 3. **Keep it close.** Place your note where it helps you most, and use Quick Add whenever something comes to mind.
 
-MakeTask lives in the **menu bar** at the top of your screen. Click its icon to find your lists, open Settings, or view the built-in Guide.
+MakeTask appears in the **Dock** while running. Click its Dock icon to reveal all your notes, including hidden ones. Clicking again keeps them visible. The **menu bar** icon at the top of your screen lets you find your lists, open Settings, or view the built-in Guide.
 
 ## A few handy shortcuts
 

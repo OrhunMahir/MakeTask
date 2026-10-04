@@ -6,6 +6,7 @@ final class WelcomeUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["MAKETASK_UI_TESTING"] = "1"
         app.launchEnvironment["MAKETASK_UI_TEST_WELCOME"] = "1"
+        app.launchEnvironment["MAKETASK_UI_TEST_APP_OPEN"] = "1"
         app.launch()
         defer { app.terminate() }
         app.activate()

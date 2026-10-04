@@ -207,7 +207,10 @@ final class WidgetIntegrationTests: XCTestCase {
                 host.cacheDisplay(in: host.bounds, to: bitmap)
                 XCTAssertGreaterThan(bitmap.pixelsWide, 0)
                 if index == 0, let png = bitmap.representation(using: .png, properties: [:]) {
-                    try png.write(to: URL(fileURLWithPath: "/tmp/maketask-widget-\(Int(width))-\(Int(height)).png"))
+                    let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+                    attachment.name = "Widget \(Int(width))×\(Int(height))"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
                 }
             }
         }

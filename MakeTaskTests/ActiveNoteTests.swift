@@ -5,6 +5,54 @@ import XCTest
 
 @MainActor
 final class ActiveNoteTests: XCTestCase {
+    func testAppIconRepeatedlyRevealsAllNotesAndPreservesTheirLayout() throws {
+        let environment = try TestEnvironment()
+        defer { environment.coordinator.hideAll(); environment.coordinator.stop(); environment.cleanUp() }
+        let first = TodoList(title: "Visible", sortOrder: 0)
+        let second = TodoList(title: "Hidden collapsed", sortOrder: 1, isCollapsed: true, isHidden: true)
+        for list in [first, second] {
+            environment.container.mainContext.insert(list)
+            environment.coordinator.show(list)
+        }
+        let panels = NSApp.windows.filter { ($0.windowController as? NoteWindowController).map { [first.id, second.id].contains($0.list.id) } ?? false }
+        let frames = panels.map(\.frame)
+        environment.coordinator.hide(second)
+        for _ in 0..<3 {
+            environment.coordinator.revealNotesFromAppIcon()
+            XCTAssertFalse(first.isHidden)
+            XCTAssertFalse(second.isHidden)
+            XCTAssertTrue(second.isCollapsed)
+            XCTAssertTrue(panels.allSatisfy(\.isVisible))
+            XCTAssertEqual(panels.map(\.frame), frames)
+        }
+        environment.coordinator.hideAll()
+        environment.coordinator.revealNotesFromAppIcon()
+        XCTAssertTrue(panels.allSatisfy(\.isVisible))
+        XCTAssertFalse(NSApp.windows.contains { $0.isVisible && $0.windowController is QuickAddWindowController })
+        XCTAssertTrue(environment.settings.hasCompletedWelcome)
+    }
+
+    func testAppIconInEmptyWorkspaceReusesQuickAdd() throws {
+        let environment = try TestEnvironment()
+        defer { environment.coordinator.dismissQuickAdd(); environment.cleanUp() }
+        environment.settings.hasCompletedWelcome = true
+        environment.coordinator.revealNotesFromAppIcon()
+        let panel = try XCTUnwrap(NSApp.windows.first { $0.isVisible && $0.windowController is QuickAddWindowController })
+        environment.coordinator.revealNotesFromAppIcon()
+        XCTAssertEqual(NSApp.windows.filter { $0.isVisible && $0.windowController is QuickAddWindowController }.map(ObjectIdentifier.init), [ObjectIdentifier(panel)])
+        XCTAssertTrue(try environment.container.mainContext.fetch(FetchDescriptor<TodoList>()).isEmpty)
+    }
+
+    func testAppIconOnFirstLaunchReusesWelcomeWithoutQuickAdd() throws {
+        let environment = try TestEnvironment()
+        defer { environment.coordinator.dismissWelcome(); environment.cleanUp() }
+        environment.coordinator.revealNotesFromAppIcon()
+        let panel = try XCTUnwrap(NSApp.windows.first { $0.isVisible && $0.windowController is WelcomeWindowController })
+        environment.coordinator.revealNotesFromAppIcon()
+        XCTAssertEqual(NSApp.windows.filter { $0.isVisible && $0.windowController is WelcomeWindowController }.map(ObjectIdentifier.init), [ObjectIdentifier(panel)])
+        XCTAssertFalse(NSApp.windows.contains { $0.isVisible && $0.windowController is QuickAddWindowController })
+    }
+
     func testVisibilityToggleWithNoListsDoesNotOpenQuickAdd() throws {
         let environment = try TestEnvironment()
         defer {

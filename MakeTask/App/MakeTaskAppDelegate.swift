@@ -1,10 +1,13 @@
 import AppKit
+import Carbon
 import SwiftData
 import SwiftUI
 
 @MainActor
 final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
     private var uiTestWindow: NSWindow?
+    private var hasStarted = false
+    private var pendingAppIconReveal = false
 
     let modelContainer: ModelContainer
     let settings: AppSettings
@@ -48,15 +51,19 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
-        if AppRuntime.isRunningUITests {
-            NSApp.setActivationPolicy(.regular)
+        guard !AppRuntime.isRunningUnitTests else { return }
+        NSApp.setActivationPolicy(.regular)
+        // Handle explicit launch/reopen events, not activation (which also occurs
+        // for widgets and keyboard shortcuts). SwiftUI owns the app delegate proxy.
+        for eventID in [kAEOpenApplication, kAEReopenApplication] {
+            NSAppleEventManager.shared().setEventHandler(
+                self, andSelector: #selector(handleAppOpenEvent(_:withReplyEvent:)),
+                forEventClass: AEEventClass(kCoreEventClass), andEventID: AEEventID(eventID)
+            )
         }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if !AppRuntime.isRunningUITests {
-            NSApp.setActivationPolicy(.accessory)
-        }
         settings.applyAppearance()
 
         if AppRuntime.isRunningUITests {
@@ -67,9 +74,26 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
         }
 
         guard !AppRuntime.isRunningUnitTests else { return }
-        windowCoordinator.start()
-        windowCoordinator.presentWelcomeIfNeeded()
+        windowCoordinator.start(registerGlobalShortcuts: AppRuntime.supportsGlobalShortcuts())
         windowCoordinator.refreshWidgets()
+        finishStarting()
+    }
+
+    @objc private func handleAppOpenEvent(_ event: NSAppleEventDescriptor, withReplyEvent reply: NSAppleEventDescriptor) {
+        guard AppRuntime.shouldRevealNotes(for: event) else { return }
+        // UI tests seed their own initial workspace; Dock reopens still use the real path.
+        if AppRuntime.isRunningUITests && event.eventID == AEEventID(kAEOpenApplication)
+            && ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_APP_OPEN"] != "1" { return }
+        guard hasStarted else { pendingAppIconReveal = true; return }
+        windowCoordinator.revealNotesFromAppIcon()
+    }
+
+    private func finishStarting() {
+        hasStarted = true
+        if pendingAppIconReveal {
+            pendingAppIconReveal = false
+            windowCoordinator.revealNotesFromAppIcon()
+        }
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -95,6 +119,13 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        if !AppRuntime.isRunningUnitTests {
+            for eventID in [kAEOpenApplication, kAEReopenApplication] {
+                NSAppleEventManager.shared().removeEventHandler(
+                    forEventClass: AEEventClass(kCoreEventClass), andEventID: AEEventID(eventID)
+                )
+            }
+        }
         windowCoordinator.stop()
         windowCoordinator.saveContext()
     }
@@ -104,16 +135,20 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startUITestSession() {
+        defer { finishStarting() }
         settings.completionSound = .none
         windowCoordinator.start(registerGlobalShortcuts: false)
 
         if ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_WELCOME"] == "1" {
-            windowCoordinator.presentWelcomeIfNeeded()
+            if ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_APP_OPEN"] != "1" {
+                windowCoordinator.presentWelcomeIfNeeded()
+            }
             return
         }
 
         let context = modelContainer.mainContext
-        let list = TodoList(title: "UI Test List")
+        let testAppOpen = ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_APP_OPEN"] == "1"
+        let list = TodoList(title: "UI Test List", isHidden: testAppOpen)
         context.insert(list)
         context.insert(TodoTask(title: "Alpha Task", sortOrder: 0, list: list))
         context.insert(TodoTask(title: "Beta Task", sortOrder: 1, list: list))
@@ -123,6 +158,12 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
         windowCoordinator.saveContext()
 
         if ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_NATIVE_NOTES"] == "1" {
+            if ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_DOCK"] == "1" {
+                let hidden = TodoList(title: "Dock Hidden List", sortOrder: 1, isHidden: true)
+                context.insert(hidden)
+                context.insert(TodoTask(title: "Dock Hidden Task", list: hidden))
+                windowCoordinator.saveContext()
+            }
             switch ProcessInfo.processInfo.environment["MAKETASK_UI_TEST_WIDGET_ROUTE"] {
             case "task":
                 let task = list.orderedTasks[0]
@@ -139,7 +180,7 @@ final class MakeTaskAppDelegate: NSObject, NSApplicationDelegate {
                 windowCoordinator.saveContext()
                 windowCoordinator.handleWidgetRoute(.add(target.id))
             default:
-                windowCoordinator.showAndActivate(list)
+                if !testAppOpen { windowCoordinator.showAndActivate(list) }
             }
             return
         }

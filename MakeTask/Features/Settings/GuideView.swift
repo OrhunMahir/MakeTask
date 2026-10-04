@@ -321,7 +321,7 @@ struct GuideView: View {
                 behaviorCard(
                     icon: "eye.slash",
                     title: "Hide",
-                    detail: "The note disappears completely. Restore it from the menu bar, Quick Add's Show Note button, or \(settings.shortcutDescription(for: .toggleAllNotesVisibility)).",
+                    detail: "The note disappears completely. Restore it from the Dock, menu bar, Quick Add's Show Note button, or \(settings.shortcutDescription(for: .toggleAllNotesVisibility)).",
                     tint: .blue
                 )
                 behaviorCard(

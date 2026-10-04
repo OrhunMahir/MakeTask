@@ -88,6 +88,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
 
     func show() {
         fitToScreens(visibleScreenFrames(), persist: false)
+        if window?.isMiniaturized == true { window?.deminiaturize(nil) }
         window?.orderFrontRegardless()
     }
 
