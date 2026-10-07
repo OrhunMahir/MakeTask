@@ -140,6 +140,74 @@ final class NoteKeyboardRoutingTests: XCTestCase {
         XCTAssertNil(fixture.environment.coordinator.noteKeyboardCommand)
     }
 
+    func testHeaderReleasesBodyEditorButKeepsTitleEditorAndBodyClicks() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let panel = try XCTUnwrap(fixture.panel as? FloatingNotePanel)
+        var resetCount = 0
+        panel.onHeaderMouseDown = { resetCount += 1 }
+        let editor = NSTextView()
+        fixture.focus(editor)
+        editor.frame = panel.contentView!.convert(NSRect(x: 10, y: 10, width: 200, height: 30), from: nil)
+        panel.prepareForHeaderInteraction(at: NSPoint(x: 40, y: 40))
+        XCTAssertTrue(panel.firstResponder === editor)
+        XCTAssertEqual(resetCount, 0)
+        panel.prepareForHeaderInteraction(at: NSPoint(x: 40, y: panel.frame.height - 10))
+        XCTAssertFalse(panel.firstResponder === editor)
+        XCTAssertEqual(resetCount, 1)
+        editor.frame = panel.contentView!.convert(NSRect(x: 10, y: panel.frame.height - 30, width: 200, height: 20), from: nil)
+        XCTAssertTrue(panel.makeFirstResponder(editor))
+        panel.prepareForHeaderInteraction(at: NSPoint(x: 40, y: panel.frame.height - 10))
+        XCTAssertTrue(panel.firstResponder === editor, "Clicking a list-title editor must retain its caret")
+    }
+
+    func testHeaderResetClearsSelectionAndSavesDraftInHostedNote() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let task = TodoTask(title: "Original", list: fixture.controller.list)
+        fixture.environment.container.mainContext.insert(task)
+        fixture.controller.activateAndFocus()
+        try await Task.sleep(for: .milliseconds(100))
+        func command(_ command: NoteKeyboardCommand) {
+            fixture.environment.coordinator.noteKeyboardCommand = NoteKeyboardCommandEvent(
+                listID: fixture.controller.list.id, command: command)
+        }
+        command(.selectNextTask)
+        command(.editSelectedTask)
+        try await Task.sleep(for: .milliseconds(100))
+        let editor = try XCTUnwrap(fixture.panel.firstResponder as? NSTextView)
+        editor.selectAll(nil)
+        editor.insertText("Saved draft", replacementRange: editor.selectedRange())
+        try await Task.sleep(for: .milliseconds(50))
+        let panel = try XCTUnwrap(fixture.panel as? FloatingNotePanel)
+        panel.prepareForHeaderInteraction(at: NSPoint(x: 40, y: panel.frame.height - 10))
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(task.title, "Saved draft")
+        command(.toggleSelectedTask)
+        command(.editSelectedTask)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertFalse(task.isCompleted)
+        XCTAssertFalse(fixture.panel.firstResponder is NSTextView)
+    }
+
+    func testCollapseResignsEditorAndBlocksTaskCommandsUntilExpanded() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let editor = NSTextView()
+        fixture.focus(editor)
+        fixture.controller.setCollapsed(true, animated: false)
+        XCTAssertFalse(fixture.panel.firstResponder === editor)
+        for action: AppShortcutAction in [.completeSelectedTask, .editSelectedTask, .deleteSelectedTask, .selectNextTask] {
+            let event = try keyEvent(action.defaultShortcut, window: fixture.panel)
+            XCTAssertFalse(NoteKeyboardRouting.allows(action, event: event, in: fixture.panel))
+        }
+        let collapse = try keyEvent(AppShortcutAction.collapseCurrentNote.defaultShortcut, window: fixture.panel)
+        XCTAssertTrue(NoteKeyboardRouting.allows(.collapseCurrentNote, event: collapse, in: fixture.panel))
+        fixture.controller.setCollapsed(false, animated: false)
+        let space = try keyEvent(AppShortcutAction.completeSelectedTask.defaultShortcut, window: fixture.panel)
+        XCTAssertTrue(NoteKeyboardRouting.allows(.completeSelectedTask, event: space, in: fixture.panel))
+    }
+
     private struct FocusedButtonView: View {
         @FocusState private var isFocused: Bool
         let focusChanged: (Bool) -> Void

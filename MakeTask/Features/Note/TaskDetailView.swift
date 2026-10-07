@@ -121,7 +121,14 @@ struct TaskDetailView: View {
                 .font(settings.font(size: 10.5, weight: .semibold))
                 .foregroundStyle(.secondary)
 
-            Spacer()
+            Spacer(minLength: 0)
+
+            if !task.isCompleted {
+                ViewThatFits(in: .horizontal) {
+                    statusMenu(compact: false)
+                    statusMenu(compact: true)
+                }
+            }
 
             Menu {
                 ForEach(TaskPriority.allCases) { priority in
@@ -156,6 +163,31 @@ struct TaskDetailView: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
         }
+    }
+
+    private func statusMenu(compact: Bool) -> some View {
+        Menu {
+            Button { coordinator.setInProgress(false, for: task) } label: {
+                Label("To Do", systemImage: task.isInProgress ? "circle" : "checkmark")
+            }
+            Button { coordinator.setInProgress(true, for: task) } label: {
+                Label("In Progress", systemImage: task.isInProgress ? "checkmark" : "circle.lefthalf.filled")
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: task.isInProgress ? "circle.lefthalf.filled" : "circle")
+                if !compact { Text(task.isInProgress ? "In Progress" : "To Do") }
+            }
+            .font(settings.font(size: 10.5, weight: .medium))
+            .foregroundStyle(task.isInProgress ? noteTint : .secondary)
+            .padding(.horizontal, 5)
+            .frame(height: 24)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(task.isInProgress ? "Status: In Progress" : "Status: To Do")
+        .accessibilityLabel(task.isInProgress ? "Status: In Progress" : "Status: To Do")
+        .accessibilityIdentifier("task.status-menu")
     }
 
     private var subtaskSection: some View {

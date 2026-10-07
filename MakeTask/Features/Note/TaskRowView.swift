@@ -13,7 +13,7 @@ struct TaskRowView: View {
     @EnvironmentObject private var settings: AppSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
-    @State private var titleDraft = ""
+    @Binding var titleDraft: String
     @State private var rowSize: CGSize = .zero
     @FocusState private var isTitleFocused: Bool
 
@@ -147,11 +147,15 @@ struct TaskRowView: View {
             if editing {
                 titleDraft = task.title
                 DispatchQueue.main.async {
+                    guard isEditing else { return }
                     isTitleFocused = true
                     DispatchQueue.main.async {
+                        guard isEditing, isTitleFocused else { return }
                         (NSApp.keyWindow?.firstResponder as? NSTextView)?.selectAll(nil)
                     }
                 }
+            } else {
+                isTitleFocused = false
             }
         }
         .onChange(of: isTitleFocused) { _, focused in
@@ -167,11 +171,12 @@ struct TaskRowView: View {
                 selectedTaskID = task.id
                 completeTask()
             } label: {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : (task.isInProgress ? "circle.lefthalf.filled" : "circle"))
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(task.isCompleted ? list.noteColor.tint : .secondary)
+                    .foregroundStyle(task.isCompleted || task.isInProgress ? list.noteColor.tint : .secondary)
             }
             .buttonStyle(.plain)
+            .accessibilityValue(task.isCompleted ? "Completed" : (task.isInProgress ? "In Progress" : "To Do"))
             .help(task.isCompleted ? "Mark incomplete" : "Mark complete")
             .accessibilityIdentifier("task.checkbox.\(task.id.uuidString)")
             .accessibilityLabel(

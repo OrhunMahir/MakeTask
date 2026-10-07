@@ -13,6 +13,14 @@ enum NoteKeyboardRouting {
 
     static func allows(_ action: AppShortcutAction, event: NSEvent, in window: NSWindow) -> Bool {
         guard window.attachedSheet == nil, NSApp.modalWindow == nil else { return false }
+        if let panel = window as? FloatingNotePanel, !panel.taskInputEnabled {
+            switch action {
+            case .hideCurrentNote, .collapseCurrentNote, .renameCurrentList, .deleteCurrentNote, .newList, .searchTasks:
+                break
+            default:
+                return false
+            }
+        }
         guard controlHasFocus(in: window) else { return true }
 
         // Keep explicit window commands available while editing, but don't let

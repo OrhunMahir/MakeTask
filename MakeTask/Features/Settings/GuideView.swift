@@ -193,7 +193,7 @@ struct GuideView: View {
         InteractionItem(
             icon: "note.text",
             title: "Click a task title",
-            detail: "Open notes, due date/time, priority, and subtasks. Double-click a subtask title to rename it."
+            detail: "Open notes, due date/time, priority, and subtasks. Use the status menu beside Priority to mark a task In Progress. It stays active until you complete it. Double-click a subtask title to rename it."
         ),
         InteractionItem(
             icon: "chevron.down",

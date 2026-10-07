@@ -39,6 +39,7 @@ final class WindowCoordinator: ObservableObject {
     @Published private(set) var activeListID: UUID?
     @Published var focusNewTaskListID: UUID?
     @Published var renameListID: UUID?
+    let noteInteractionResets = PassthroughSubject<UUID, Never>()
     @Published var noteKeyboardCommand: NoteKeyboardCommandEvent?
     @Published private(set) var draggedTaskID: UUID?
     @Published private(set) var taskDropTargetID: UUID?
@@ -114,6 +115,7 @@ final class WindowCoordinator: ObservableObject {
         let notes: String
         let dueDate: Date?
         let priority: Int
+        let isInProgress: Bool
         let isCompleted: Bool
         let completedAt: Date?
         let createdAt: Date
@@ -128,6 +130,7 @@ final class WindowCoordinator: ObservableObject {
             dueDate = task.dueDate
             priority = task.priority
             isCompleted = task.isCompleted
+            isInProgress = task.isInProgress
             completedAt = task.completedAt
             createdAt = task.createdAt
             sortOrder = task.sortOrder
@@ -523,8 +526,9 @@ final class WindowCoordinator: ObservableObject {
         if activatingNote || list.isHidden {
             showAndActivate(list)
         }
-        if list.isCollapsed, command != .requestListDeletion {
-            toggleCollapse(list)
+        if list.isCollapsed {
+            guard command == .search || command == .requestListDeletion else { return }
+            if command == .search { toggleCollapse(list) }
         }
         noteKeyboardCommand = NoteKeyboardCommandEvent(listID: list.id, command: command)
     }
@@ -620,6 +624,19 @@ final class WindowCoordinator: ObservableObject {
         task.dueDate = dueDate
         scheduleNextDueDateRefresh()
         saveContext()
+    }
+
+    func setInProgress(_ inProgress: Bool, for task: TodoTask) {
+        guard !task.isCompleted, task.isInProgress != inProgress else { return }
+        let previous = task.isInProgress
+        let taskID = task.id
+        task.isInProgress = inProgress
+        saveContext()
+        registerUndoAction(
+            named: "Change Task Status",
+            undo: { [weak self] in self?.fetchTask(id: taskID)?.isInProgress = previous },
+            redo: { [weak self] in self?.fetchTask(id: taskID)?.isInProgress = inProgress }
+        )
     }
 
     func setPriority(_ priority: TaskPriority, for task: TodoTask) {
@@ -1179,6 +1196,7 @@ final class WindowCoordinator: ObservableObject {
                         dueDate: taskRecord.dueDate,
                         priority: TaskPriority(rawValue: taskRecord.priority)?.rawValue ?? 0,
                         isCompleted: taskRecord.isCompleted,
+                        isInProgress: taskRecord.isInProgress ?? false,
                         completedAt: taskRecord.isCompleted ? taskRecord.completedAt : nil,
                         createdAt: taskRecord.createdAt,
                         sortOrder: Double(taskIndex),
@@ -1436,6 +1454,7 @@ final class WindowCoordinator: ObservableObject {
             dueDate: snapshot.dueDate,
             priority: snapshot.priority,
             isCompleted: snapshot.isCompleted,
+            isInProgress: snapshot.isInProgress,
             completedAt: snapshot.completedAt,
             createdAt: snapshot.createdAt,
             sortOrder: snapshot.sortOrder,
@@ -1472,6 +1491,7 @@ final class WindowCoordinator: ObservableObject {
                 dueDate: taskSnapshot.dueDate,
                 priority: taskSnapshot.priority,
                 isCompleted: taskSnapshot.isCompleted,
+                isInProgress: taskSnapshot.isInProgress,
                 completedAt: taskSnapshot.completedAt,
                 createdAt: taskSnapshot.createdAt,
                 sortOrder: taskSnapshot.sortOrder,

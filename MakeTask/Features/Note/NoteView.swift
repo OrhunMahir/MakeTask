@@ -16,6 +16,7 @@ struct NoteView: View {
     @State private var isConfirmingClearCompleted = false
     @State private var selectedTaskID: UUID?
     @State private var editingTaskID: UUID?
+    @State private var taskTitleDraft = ""
     @State private var expandedTaskID: UUID?
     @State private var isSearching = false
     @State private var searchText = ""
@@ -84,7 +85,8 @@ struct NoteView: View {
                                         list: list,
                                         selectedTaskID: $selectedTaskID,
                                         editingTaskID: $editingTaskID,
-                                        expandedTaskID: $expandedTaskID
+                                        expandedTaskID: $expandedTaskID,
+                                        titleDraft: $taskTitleDraft
                                     )
                                 }
 
@@ -99,7 +101,8 @@ struct NoteView: View {
                                                     list: list,
                                                     selectedTaskID: $selectedTaskID,
                                                     editingTaskID: $editingTaskID,
-                                                    expandedTaskID: $expandedTaskID
+                                                    expandedTaskID: $expandedTaskID,
+                                                    titleDraft: $taskTitleDraft
                                                 )
                                             }
                                         }
@@ -195,13 +198,21 @@ struct NoteView: View {
             expandedTaskID = taskID
             isNewTaskFocused = false
         }
+        .onReceive(coordinator.noteInteractionResets) { listID in
+            guard listID == list.id else { return }
+            clearTaskInteraction()
+        }
+        .onChange(of: showsBody) { _, visible in
+            if !visible { clearTaskInteraction() }
+            else if isSearching { isSearchFocused = true }
+        }
         .onReceive(coordinator.$noteKeyboardCommand) { event in
             guard let event, event.listID == list.id else { return }
             handleKeyboardCommand(event.command)
         }
         .onChange(of: keyboardTasks.map(\.id)) { _, taskIDs in
             if let selectedTaskID, !taskIDs.contains(selectedTaskID) {
-                self.selectedTaskID = taskIDs.first
+                self.selectedTaskID = nil
             }
             if let editingTaskID, !taskIDs.contains(editingTaskID) {
                 self.editingTaskID = nil
@@ -340,19 +351,31 @@ struct NoteView: View {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private func clearTaskInteraction() {
+        if let editingTaskID, let task = list.tasks.first(where: { $0.id == editingTaskID }) {
+            coordinator.renameTask(task, to: taskTitleDraft)
+        }
+        editingTaskID = nil
+        selectedTaskID = nil
+        isNewTaskFocused = false
+        isSearchFocused = false
+        selectionMovement = 0
+    }
+
     private func handleKeyboardCommand(_ command: NoteKeyboardCommand) {
+        guard showsBody || command == .search || command == .requestListDeletion else { return }
         switch command {
         case .search:
             isSearching = true
             DispatchQueue.main.async {
-                isSearchFocused = true
+                if showsBody { isSearchFocused = true }
             }
         case .selectPreviousTask:
             moveSelection(by: -1)
         case .selectNextTask:
             moveSelection(by: 1)
         case .toggleSelectedTask:
-            guard let task = selectedTask(orSelectFirst: true) else { return }
+            guard let task = selectedTask() else { return }
             if expandedTaskID == task.id {
                 expandedTaskID = nil
             }
@@ -360,10 +383,10 @@ struct NoteView: View {
                 coordinator.toggleTask(task)
             }
         case .editSelectedTask:
-            guard let task = selectedTask(orSelectFirst: true) else { return }
+            guard let task = selectedTask() else { return }
             editingTaskID = task.id
         case .deleteSelectedTask:
-            guard let task = selectedTask(orSelectFirst: false) else { return }
+            guard let task = selectedTask() else { return }
             expandedTaskID = nil
             editingTaskID = nil
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
@@ -374,10 +397,10 @@ struct NoteView: View {
         case .moveSelectedTaskDown:
             moveSelectedTask(by: 1)
         case .moveSelectedTaskToPreviousList:
-            guard let task = selectedTask(orSelectFirst: false) else { return }
+            guard let task = selectedTask() else { return }
             coordinator.moveTaskToAdjacentList(task, by: -1)
         case .moveSelectedTaskToNextList:
-            guard let task = selectedTask(orSelectFirst: false) else { return }
+            guard let task = selectedTask() else { return }
             coordinator.moveTaskToAdjacentList(task, by: 1)
         case .toggleCompletedSection:
             toggleCompletedSection()
@@ -422,14 +445,12 @@ struct NoteView: View {
         }
     }
 
-    private func selectedTask(orSelectFirst: Bool) -> TodoTask? {
+    private func selectedTask() -> TodoTask? {
         if let selectedTaskID,
            let task = keyboardTasks.first(where: { $0.id == selectedTaskID }) {
             return task
         }
-        guard orSelectFirst, let first = keyboardTasks.first else { return nil }
-        selectedTaskID = first.id
-        return first
+        return nil
     }
 
     private func closeSearch() {
@@ -445,7 +466,7 @@ struct NoteView: View {
             if list.isCompletedSectionCollapsed,
                let selectedTaskID,
                completedTasks.contains(where: { $0.id == selectedTaskID }) {
-                self.selectedTaskID = activeTasks.last?.id
+                self.selectedTaskID = nil
             }
         }
         coordinator.saveContext()

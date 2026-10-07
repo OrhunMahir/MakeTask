@@ -172,6 +172,7 @@ struct NoteHeaderView: View {
     }
 
     private func beginRename() {
+        coordinator.noteInteractionResets.send(list.id)
         titleDraft = list.title
         isRenaming = true
         DispatchQueue.main.async {

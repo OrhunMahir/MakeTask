@@ -49,6 +49,11 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
 
         super.init(window: panel)
 
+        panel.taskInputEnabled = !list.isCollapsed
+        panel.onHeaderMouseDown = { [weak coordinator, weak list] in
+            guard let list else { return }
+            coordinator?.noteInteractionResets.send(list.id)
+        }
         panel.delegate = self
         panel.backgroundColor = .clear
         panel.isOpaque = false
@@ -163,6 +168,11 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
 
     func setCollapsed(_ collapsed: Bool, animated: Bool, persist: Bool = true) {
         guard let panel = window else { return }
+        if collapsed {
+            coordinator.noteInteractionResets.send(list.id)
+            panel.makeFirstResponder(panel.contentView)
+            (panel as? FloatingNotePanel)?.taskInputEnabled = false
+        }
         requestedCollapsed = collapsed
         if isChangingCollapseState {
             queuedRequest = (collapsed, animated, persist)
@@ -217,6 +227,7 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
             }
             self.list.isCollapsed = collapsed
             self.presentation.phase = collapsed ? .collapsed : .expanded
+            (panel as? FloatingNotePanel)?.taskInputEnabled = !collapsed
             if !collapsed { panel.styleMask.insert(.resizable) }
             panel.minSize.height = collapsed
                 ? NoteWindowMetrics.collapsedHeaderHeight : NoteWindowMetrics.headerHeight

@@ -419,7 +419,7 @@
                 CODE_SIGN_ENTITLEMENTS = Config/MakeTask.entitlements;
                 INFOPLIST_FILE = "Config/MakeTask-Info.plist";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
@@ -431,7 +431,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 MakeTask contributors.";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.1.1;
+				MARKETING_VERSION = 1.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(MAKETASK_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -448,7 +448,7 @@
                 CODE_SIGN_ENTITLEMENTS = Config/MakeTask.entitlements;
                 INFOPLIST_FILE = "Config/MakeTask-Info.plist";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
@@ -460,7 +460,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 MakeTask contributors.";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.1.1;
+				MARKETING_VERSION = 1.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(MAKETASK_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -538,7 +538,7 @@
                 APPLICATION_EXTENSION_API_ONLY = YES;
                 CODE_SIGN_ENTITLEMENTS = Config/MakeTaskWidgets.entitlements;
                 CODE_SIGN_STYLE = Automatic;
-                CURRENT_PROJECT_VERSION = 7;
+                CURRENT_PROJECT_VERSION = 8;
                 ENABLE_APP_SANDBOX = YES;
                 ENABLE_HARDENED_RUNTIME = YES;
                 ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
@@ -547,7 +547,7 @@
                 INFOPLIST_KEY_CFBundleDisplayName = MakeTask;
                 LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@executable_path/../../../../Frameworks", );
                 MACOSX_DEPLOYMENT_TARGET = 14.0;
-                MARKETING_VERSION = 1.1.1;
+                MARKETING_VERSION = 1.1.2;
                 PRODUCT_BUNDLE_IDENTIFIER = "$(MAKETASK_BUNDLE_IDENTIFIER).Widgets";
                 PRODUCT_NAME = "$(TARGET_NAME)";
                 SDKROOT = macosx;
@@ -565,7 +565,7 @@
                 APPLICATION_EXTENSION_API_ONLY = YES;
                 CODE_SIGN_ENTITLEMENTS = Config/MakeTaskWidgets.entitlements;
                 CODE_SIGN_STYLE = Automatic;
-                CURRENT_PROJECT_VERSION = 7;
+                CURRENT_PROJECT_VERSION = 8;
                 ENABLE_APP_SANDBOX = YES;
                 ENABLE_HARDENED_RUNTIME = YES;
                 ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
@@ -574,7 +574,7 @@
                 INFOPLIST_KEY_CFBundleDisplayName = MakeTask;
                 LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@executable_path/../../../../Frameworks", );
                 MACOSX_DEPLOYMENT_TARGET = 14.0;
-                MARKETING_VERSION = 1.1.1;
+                MARKETING_VERSION = 1.1.2;
                 PRODUCT_BUNDLE_IDENTIFIER = "$(MAKETASK_BUNDLE_IDENTIFIER).Widgets";
                 PRODUCT_NAME = "$(TARGET_NAME)";
                 SDKROOT = macosx;

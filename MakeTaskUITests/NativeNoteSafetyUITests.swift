@@ -23,6 +23,65 @@ final class NativeNoteSafetyUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Complete Alpha Task"].waitForExistence(timeout: 5))
     }
 
+    func testHeaderAndCollapseReleaseTaskSelectionAndEditing() {
+        launch()
+        app.typeKey(.downArrow, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        let editor = app.descendants(matching: .any).matching(identifier: "task.title-field").firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 2))
+        editor.typeKey("a", modifierFlags: .command)
+        editor.typeText("Saved draft")
+        let options = app.descendants(matching: .any).matching(identifier: "note.options").firstMatch
+        // Header whitespace immediately left of the options button also supports dragging.
+        let header = options.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: -30, dy: 5))
+        header.click()
+        XCTAssertTrue(editor.waitForNonExistence(timeout: 2))
+        app.typeKey(.space, modifierFlags: [])
+        app.typeText("x")
+        app.typeKey(.delete, modifierFlags: [])
+        XCTAssertTrue(app.buttons["Complete Saved draft"].exists)
+        XCTAssertTrue(app.buttons["Complete Beta Task"].exists)
+        XCTAssertFalse(editor.exists)
+
+        app.typeKey(.downArrow, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        XCTAssertTrue(editor.waitForExistence(timeout: 2))
+        editor.typeKey("a", modifierFlags: .command)
+        editor.typeText("Saved on collapse")
+        app.typeKey("m", modifierFlags: .command)
+        XCTAssertTrue(editor.waitForNonExistence(timeout: 2))
+        app.typeKey(.space, modifierFlags: [])
+        app.typeText("x")
+        app.typeKey(.delete, modifierFlags: [])
+        XCTAssertFalse(app.buttons["Complete Saved on collapse"].exists)
+        app.typeKey("m", modifierFlags: .command)
+        XCTAssertTrue(app.buttons["Complete Saved on collapse"].waitForExistence(timeout: 2))
+        app.typeKey(.space, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        XCTAssertFalse(editor.exists)
+        XCTAssertTrue(app.buttons["Complete Saved on collapse"].exists)
+        XCTAssertTrue(app.buttons["Complete Beta Task"].exists)
+    }
+
+    func testProgressMenuKeepsTaskActiveAndCheckboxCompletesInOneClick() {
+        launch()
+        let title = app.staticTexts.matching(NSPredicate(format: "value == %@", "Alpha Task")).firstMatch
+        title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        let status = app.descendants(matching: .any).matching(identifier: "task.status-menu").firstMatch
+        XCTAssertTrue(status.waitForExistence(timeout: 2))
+        status.click()
+        app.menuItems["In Progress"].click()
+        let checkbox = app.buttons["Complete Alpha Task"]
+        XCTAssertTrue(checkbox.exists)
+        XCTAssertEqual(checkbox.value as? String, "In Progress")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "In Progress in task details"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        checkbox.click()
+        XCTAssertTrue(app.buttons["Mark Alpha Task incomplete"].waitForExistence(timeout: 2))
+    }
+
     func testDockClickRevealsHiddenNotesAndRepeatedClicksKeepThemVisible() throws {
         app.launchEnvironment["MAKETASK_UI_TEST_DOCK"] = "1"
         launch()

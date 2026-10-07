@@ -197,6 +197,7 @@ struct MakeTaskBackupDocument: Codable, Equatable {
         let notes: String
         let dueDate: Date?
         let priority: Int
+        let isInProgress: Bool?
         let isCompleted: Bool
         let completedAt: Date?
         let createdAt: Date
@@ -210,6 +211,7 @@ struct MakeTaskBackupDocument: Codable, Equatable {
             dueDate = task.dueDate
             priority = task.priority
             isCompleted = task.isCompleted
+            isInProgress = task.isInProgress
             completedAt = task.completedAt
             createdAt = task.createdAt
             sortOrder = task.sortOrder
@@ -223,6 +225,7 @@ struct MakeTaskBackupDocument: Codable, Equatable {
             dueDate: Date?,
             priority: Int,
             isCompleted: Bool,
+            isInProgress: Bool? = nil,
             completedAt: Date?,
             createdAt: Date,
             sortOrder: Double,
@@ -234,6 +237,7 @@ struct MakeTaskBackupDocument: Codable, Equatable {
             self.dueDate = dueDate
             self.priority = priority
             self.isCompleted = isCompleted
+            self.isInProgress = isInProgress
             self.completedAt = completedAt
             self.createdAt = createdAt
             self.sortOrder = sortOrder

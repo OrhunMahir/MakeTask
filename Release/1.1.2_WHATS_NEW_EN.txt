@@ -1,0 +1,5 @@
+Keep track of tasks you've started.
+
+Choose In Progress beside Priority in task details. A half-filled circle marks the task while it stays in your active list. Completing a task still takes just one click.
+
+We've also made keyboard handling safer: clicking a note's header or collapsing it releases the selected task. Space and Return only act on a task you've selected, and collapsed notes no longer respond to task-editing shortcuts.

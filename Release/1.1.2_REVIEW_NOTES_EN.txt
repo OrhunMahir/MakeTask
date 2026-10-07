@@ -1,0 +1,7 @@
+MakeTask 1.1.2 adds an In Progress task status and fixes task selection/focus after interacting with a note's header or collapsing the note. No account or demo credentials are required.
+
+To test status: create a list and two tasks. Click a task title to open its details. Beside Priority, open the status menu and choose In Progress. The task's circle becomes half-filled, it stays in the active section, and the completed count does not increase. Click its circle once to complete it. Existing data and JSON backups remain compatible; status is saved locally and supports Undo/Redo.
+
+To test focus safety: select a task and press Return to edit its title. Type a title, then click empty space in the note's header. The edit is saved and the task selection is cleared. Space or Return now does nothing until a task is selected again. Command-M collapses a note; Space, letters and Delete must not modify hidden tasks. Command-M expands it without restoring the old selection. Clicking the list title still explicitly starts list renaming.
+
+The Dock icon, menu bar, keyboard shortcuts and Notification Center widgets remain available. Task data stays on the Mac in the existing app container. No tracking, analytics, accounts, servers or cloud sync are used. Settings > About contains the offline privacy policy.

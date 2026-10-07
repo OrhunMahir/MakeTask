@@ -8,6 +8,7 @@ final class TodoTask {
     var notes: String
     var dueDate: Date?
     var priority: Int
+    var isInProgress: Bool = false
     var isCompleted: Bool
     var completedAt: Date?
     var createdAt: Date
@@ -24,6 +25,7 @@ final class TodoTask {
         dueDate: Date? = nil,
         priority: Int = 0,
         isCompleted: Bool = false,
+        isInProgress: Bool = false,
         completedAt: Date? = nil,
         createdAt: Date = .now,
         sortOrder: Double = 0,
@@ -36,6 +38,7 @@ final class TodoTask {
         self.dueDate = dueDate
         self.priority = priority
         self.isCompleted = isCompleted
+        self.isInProgress = isInProgress
         self.completedAt = completedAt
         self.createdAt = createdAt
         self.sortOrder = sortOrder
