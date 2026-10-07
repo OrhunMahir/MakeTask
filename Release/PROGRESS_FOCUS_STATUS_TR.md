@@ -30,6 +30,6 @@ Preview'ın ayrı App Group'unda widget snapshot yazma izni uyarısı görüldü
 
 ## Yayın durumu
 
-Yerel dal `task-progress-focus`. Kullanıcı 7 Ekim’de hazırsa App Store Connect’e yükleme yetkisi verdi. 1.1.1 (7), Connect’te Ready for Distribution olarak görüldü. Yeni sürüm 1.1.2 (8); universal Release arşivi ve App Store dağıtım imzası doğrulandı. Paket: `build/AppStore-ggkmzJ/Export/MakeTask.pkg`, SHA-256: `42da86aca7d262d9e65c847e94c71e48f0e43a69b70e5ab15199128125d0a273`. Connect sürüm formu, yenilikler ve inceleme notları hazırlandı; manuel yayın seçimi korundu. Yükleme/gönderim sonucu ayrıca kaydedilecek.
+Yerel dal `task-progress-focus`. Kullanıcı 7 Ekim’de hazırsa App Store Connect’e yükleme yetkisi verdi. 1.1.1 (7), Connect’te Ready for Distribution olarak görüldü. Yeni sürüm 1.1.2 (8); universal Release arşivi ve App Store dağıtım imzası doğrulandı. Paket: `build/AppStore-ggkmzJ/Export/MakeTask.pkg`, SHA-256: `42da86aca7d262d9e65c847e94c71e48f0e43a69b70e5ab15199128125d0a273`. Connect sürüm formu, yenilikler ve inceleme notları hazırlandı; manuel yayın seçimi korundu. Kaynak `9b011e1` GitHub’a gönderildi. Build 8 yüklendi ve 7 Ekim 14:25 CEST’te Apple incelemesine gönderildi; Waiting for Review doğrulandı. Ayrıntı: `Release/1.1.2_STATUS_TR.md`.
 
 7 Ekim yayın öncesi UI testi tekrarı da automation-mode başlangıç zaman aşımıyla durdu; testler çalışmış/geçmiş sayılmaz. 99 birim testi, yerel pencere regresyonu ve yukarıdaki canlı kontroller mevcut doğrulama kanıtıdır.
