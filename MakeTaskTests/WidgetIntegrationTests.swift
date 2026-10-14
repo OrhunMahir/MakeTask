@@ -56,6 +56,52 @@ final class WidgetIntegrationTests: XCTestCase {
         XCTAssertNil(task.completedAt)
     }
 
+    func testProgressChangesPublishAndSurviveCompletionAndUndo() throws {
+        let env = try TestEnvironment()
+        defer { env.cleanUp(); env.coordinator.stop() }
+        let list = TodoList(title: "Progress")
+        let task = TodoTask(title: "Working", list: list)
+        env.container.mainContext.insert(list)
+        env.container.mainContext.insert(task)
+        try env.container.mainContext.save()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = WidgetSnapshotStore(url: directory.appendingPathComponent("snapshot.json"))
+        try store.write(WidgetBridge.snapshot(context: env.container.mainContext))
+        var changedSnapshots = 0
+        env.coordinator.onWidgetRefresh = {
+            if try store.write(WidgetBridge.snapshot(context: env.container.mainContext)) { changedSnapshots += 1 }
+        }
+        env.coordinator.setInProgress(true, for: task)
+        XCTAssertEqual(changedSnapshots, 1, "Changing progress alone must refresh the widget")
+        XCTAssertEqual(try store.read()?.lists[0].tasks[0].isInProgress, true)
+        XCTAssertEqual(try store.read()?.lists[0].remainingCount, 1)
+        XCTAssertTrue(env.coordinator.undoLastAction())
+        XCTAssertEqual(try store.read()?.lists[0].tasks[0].isInProgress, false)
+        XCTAssertTrue(env.coordinator.redoLastAction())
+        XCTAssertEqual(try store.read()?.lists[0].tasks[0].isInProgress, true)
+        try env.coordinator.setTaskCompletionFromWidget(id: task.id, completed: true)
+        XCTAssertEqual(try store.read()?.lists[0].tasks[0].isCompleted, true)
+        XCTAssertEqual(try store.read()?.lists[0].remainingCount, 0)
+        try env.coordinator.setTaskCompletionFromWidget(id: task.id, completed: false)
+        XCTAssertEqual(try store.read()?.lists[0].tasks[0].isInProgress, true)
+        XCTAssertEqual(try store.read()?.lists[0].remainingCount, 1)
+    }
+
+    func testLegacySnapshotWithoutProgressRemainsReadable() throws {
+        let original = WidgetSnapshot(lists: [TaskWidgetEntry.preview.list!])
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+        var lists = try XCTUnwrap(json["lists"] as? [[String: Any]])
+        var tasks = try XCTUnwrap(lists[0]["tasks"] as? [[String: Any]])
+        for index in tasks.indices { tasks[index].removeValue(forKey: "isInProgress") }
+        lists[0]["tasks"] = tasks
+        json["lists"] = lists
+        let decoded = try JSONDecoder().decode(WidgetSnapshot.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertEqual(decoded.lists[0].tasks.map(\.isInProgress), [false, false, false])
+        XCTAssertEqual(decoded.lists[0].tasks.map(\.isCompleted), [false, false, true])
+        XCTAssertEqual(decoded.lists[0].remainingCount, 2)
+    }
+
     func testFailedCompletionDoesNotPublishOrChangeTheTask() throws {
         var shouldFail = false
         let env = try TestEnvironment(saveChanges: { context in

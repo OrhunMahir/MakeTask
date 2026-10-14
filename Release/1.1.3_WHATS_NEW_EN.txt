@@ -1,0 +1,5 @@
+Drag tasks into place more smoothly: rows now make room as you move a task up or down. Long lists scroll as you drag near the edge, and cancelling a drag restores the original order.
+
+Renaming a list is easier: click empty header space to save its name, or double-click there to collapse or expand the note while editing.
+
+Widgets now show In Progress tasks with the same half-filled indicator as the app.

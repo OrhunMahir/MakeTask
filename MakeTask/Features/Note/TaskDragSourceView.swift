@@ -6,10 +6,11 @@ struct TaskDragSourceView: NSViewRepresentable {
     let title: String
     let tint: NSColor
     let font: NSFont
-    let previewWidth: CGFloat
+    let isCompleted: Bool
+    let isInProgress: Bool
     let onClick: () -> Void
     let onDragBegan: () -> Void
-    let onDragEnded: () -> Void
+    let onDragEnded: (Bool) -> Void
 
     func makeNSView(context: Context) -> TaskDragSourceNSView {
         let view = TaskDragSourceNSView()
@@ -26,7 +27,8 @@ struct TaskDragSourceView: NSViewRepresentable {
         view.title = title
         view.tint = tint
         view.font = font
-        view.previewWidth = previewWidth
+        view.isCompleted = isCompleted
+        view.isInProgress = isInProgress
         view.onClick = onClick
         view.onDragBegan = onDragBegan
         view.onDragEnded = onDragEnded
@@ -39,10 +41,11 @@ final class TaskDragSourceNSView: NSView, NSDraggingSource {
     var title = ""
     var tint = NSColor.controlAccentColor
     var font = NSFont.systemFont(ofSize: 13.5, weight: .medium)
-    var previewWidth: CGFloat = 220
+    var isCompleted = false
+    var isInProgress = false
     var onClick: () -> Void = {}
     var onDragBegan: () -> Void = {}
-    var onDragEnded: () -> Void = {}
+    var onDragEnded: (Bool) -> Void = { _ in }
 
     private var initialMouseLocation: NSPoint?
     private var isDraggingTask = false
@@ -67,15 +70,15 @@ final class TaskDragSourceNSView: NSView, NSDraggingSource {
         onDragBegan()
 
         let pasteboardItem = NSPasteboardItem()
-        pasteboardItem.setString(taskID.uuidString, forType: .string)
+        pasteboardItem.setString(taskID.uuidString, forType: .makeTaskID)
         let draggingItem = NSDraggingItem(pasteboardWriter: pasteboardItem)
         let imageSize = NSSize(
-            width: max(previewWidth, 220),
-            height: max(bounds.height, 34)
+            width: bounds.width + 73, // Checkbox, spacing and reserved delete button.
+            height: max(bounds.height + 10, 30)
         )
         draggingItem.setDraggingFrame(
             NSRect(
-                x: bounds.midX - imageSize.width / 2,
+                x: -36, // Align the title with its position in the original row.
                 y: bounds.midY - imageSize.height / 2,
                 width: imageSize.width,
                 height: imageSize.height
@@ -99,7 +102,7 @@ final class TaskDragSourceNSView: NSView, NSDraggingSource {
         _ session: NSDraggingSession,
         sourceOperationMaskFor context: NSDraggingContext
     ) -> NSDragOperation {
-        .move
+        context == .withinApplication ? .move : []
     }
 
     func draggingSession(
@@ -110,7 +113,7 @@ final class TaskDragSourceNSView: NSView, NSDraggingSource {
         session.animatesToStartingPositionsOnCancelOrFail = false
         isDraggingTask = false
         initialMouseLocation = nil
-        onDragEnded()
+        onDragEnded(operation == .move)
     }
 
     private func makePreviewImage(size: NSSize) -> NSImage {
@@ -122,25 +125,26 @@ final class TaskDragSourceNSView: NSView, NSDraggingSource {
         let card = NSBezierPath(roundedRect: cardRect, xRadius: 9, yRadius: 9)
         NSColor.windowBackgroundColor.withAlphaComponent(0.96).setFill()
         card.fill()
-        tint.withAlphaComponent(0.95).setStroke()
-        card.lineWidth = 2
+        tint.withAlphaComponent(0.35).setStroke()
+        card.lineWidth = 1
         card.stroke()
 
-        let circleRect = NSRect(x: 13, y: size.height / 2 - 7, width: 14, height: 14)
-        let circle = NSBezierPath(ovalIn: circleRect)
-        tint.setStroke()
-        circle.lineWidth = 1.7
-        circle.stroke()
+        let symbolName = isCompleted ? "checkmark.circle.fill" : (isInProgress ? "circle.lefthalf.filled" : "circle")
+        let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 15, weight: .medium))?
+            .withSymbolConfiguration(.init(paletteColors: [isCompleted || isInProgress ? tint : .secondaryLabelColor]))
+        symbol?.draw(in: NSRect(x: 12, y: size.height / 2 - 8, width: 16, height: 16))
 
         let paragraph = NSMutableParagraphStyle()
-        paragraph.lineBreakMode = .byTruncatingTail
-        let attributes: [NSAttributedString.Key: Any] = [
+        paragraph.lineBreakMode = .byWordWrapping
+        var attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: NSColor.labelColor,
             .paragraphStyle: paragraph
         ]
+        if isCompleted { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
         NSString(string: title).draw(
-            in: NSRect(x: 37, y: size.height / 2 - 9, width: size.width - 50, height: 19),
+            in: NSRect(x: 36, y: 5, width: size.width - 73, height: size.height - 10),
             withAttributes: attributes
         )
 

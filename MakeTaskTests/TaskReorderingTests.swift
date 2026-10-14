@@ -1,3 +1,4 @@
+import AppKit
 import SwiftData
 import XCTest
 @testable import MakeTask
@@ -232,6 +233,95 @@ final class TaskReorderingTests: XCTestCase {
 
         XCTAssertEqual(sourceTitles, ["Beta"])
         XCTAssertEqual(targetTitles, ["Gamma", "Alpha"])
+    }
+
+    func testHoverMovesGapUpAndDownBeforeDropWithoutOscillation() throws {
+        let environment = try TestEnvironment()
+        defer { environment.cleanUp() }
+        let fixture = try makeList(title: "Work", taskTitles: ["Alpha", "Beta", "Gamma"], in: environment.container.mainContext)
+        let drag = fixture.tasks[2]
+        environment.coordinator.beginTaskDrag(drag)
+        func hover(_ y: CGFloat) {
+            let tasks = fixture.list.orderedTasks
+            let frames = Dictionary(uniqueKeysWithValues: tasks.enumerated().map {
+                ($0.element.id, CGRect(x: 0, y: CGFloat($0.offset) * 40, width: 300, height: 40))
+            })
+            environment.coordinator.previewTaskDrop(id: drag.id, to: fixture.list, at: CGPoint(x: 100, y: y), visibleTasks: tasks, rowFrames: frames)
+        }
+        hover(5)
+        XCTAssertEqual(orderedTitles(in: fixture.list), ["Gamma", "Alpha", "Beta"])
+        for _ in 0..<10 { hover(5) }
+        XCTAssertEqual(orderedTitles(in: fixture.list), ["Gamma", "Alpha", "Beta"])
+        hover(70)
+        XCTAssertEqual(orderedTitles(in: fixture.list), ["Alpha", "Gamma", "Beta"])
+        for _ in 0..<10 { hover(70) }
+        XCTAssertEqual(orderedTitles(in: fixture.list), ["Alpha", "Gamma", "Beta"])
+        hover(170)
+        XCTAssertEqual(orderedTitles(in: fixture.list), ["Alpha", "Beta", "Gamma"])
+        environment.coordinator.endTaskDrag()
+        XCTAssertFalse(environment.coordinator.canUndo, "Returning to the starting order should not add history")
+    }
+
+    func testHoverUsesVariableHeightsAndDoesNotCrossCompletionSections() throws {
+        let environment = try TestEnvironment()
+        defer { environment.cleanUp() }
+        let fixture = try makeList(title: "Work", taskTitles: ["Alpha", "Multiline", "Gamma", "Done"], in: environment.container.mainContext)
+        fixture.tasks[3].isCompleted = true
+        fixture.tasks[2].isInProgress = true
+        let frames = Dictionary(uniqueKeysWithValues: zip(fixture.tasks, [
+            CGRect(x: 0, y: 0, width: 300, height: 30),
+            CGRect(x: 0, y: 30, width: 300, height: 100),
+            CGRect(x: 0, y: 130, width: 300, height: 30),
+            CGRect(x: 0, y: 190, width: 300, height: 30)
+        ]).map { ($0.0.id, $0.1) })
+        let drag = fixture.tasks[2]
+        environment.coordinator.beginTaskDrag(drag)
+        environment.coordinator.previewTaskDrop(id: drag.id, to: fixture.list, at: CGPoint(x: 120, y: 60), visibleTasks: fixture.tasks, rowFrames: frames)
+        XCTAssertEqual(orderedTitles(in: fixture.list), ["Alpha", "Gamma", "Multiline", "Done"])
+        // Drop in blank space below all rows: the active task stays before Completed.
+        environment.coordinator.previewTaskDrop(id: drag.id, to: fixture.list, at: CGPoint(x: 120, y: 300), visibleTasks: fixture.tasks, rowFrames: frames)
+        XCTAssertEqual(orderedTitles(in: fixture.list), ["Alpha", "Multiline", "Gamma", "Done"])
+        XCTAssertTrue(drag.isInProgress)
+        XCTAssertFalse(drag.isCompleted)
+        environment.coordinator.endTaskDrag()
+    }
+
+    func testHoverIntoEmptyListAndCancelRestoresBothListsWithoutHistory() async throws {
+        let environment = try TestEnvironment()
+        defer { environment.cleanUp() }
+        let source = try makeList(title: "Source", taskTitles: ["Alpha", "Beta"], in: environment.container.mainContext)
+        let target = try makeList(title: "Empty", taskTitles: [], sortOrder: 1, in: environment.container.mainContext)
+        let drag = source.tasks[0]
+        environment.coordinator.beginTaskDrag(drag)
+        environment.coordinator.previewTaskDrop(id: drag.id, to: target.list, at: CGPoint(x: 100, y: 70), visibleTasks: [], rowFrames: [:])
+        XCTAssertEqual(orderedTitles(in: source.list), ["Beta"])
+        XCTAssertEqual(orderedTitles(in: target.list), ["Alpha"])
+        environment.coordinator.endTaskDrag(committed: false)
+        XCTAssertEqual(orderedTitles(in: source.list), ["Alpha", "Beta"])
+        XCTAssertTrue(target.list.tasks.isEmpty)
+        XCTAssertFalse(environment.coordinator.canUndo)
+        XCTAssertNil(environment.coordinator.draggedTaskID)
+        let persisted = try ModelContext(environment.container).fetch(FetchDescriptor<TodoTask>())
+        XCTAssertEqual(persisted.first(where: { $0.id == drag.id })?.list?.id, source.list.id)
+    }
+
+    func testFilteredHoverPreservesTasksOutsideSearchResults() throws {
+        let environment = try TestEnvironment()
+        defer { environment.cleanUp() }
+        let fixture = try makeList(title: "Search", taskTitles: ["Alpha", "Hidden", "Gamma"], in: environment.container.mainContext)
+        let drag = fixture.tasks[2]
+        environment.coordinator.beginTaskDrag(drag)
+        environment.coordinator.previewTaskDrop(
+            id: drag.id, to: fixture.list, at: CGPoint(x: 50, y: 2),
+            visibleTasks: [fixture.tasks[0], drag],
+            rowFrames: [fixture.tasks[0].id: CGRect(x: 0, y: 0, width: 300, height: 30), drag.id: CGRect(x: 0, y: 30, width: 300, height: 30)]
+        )
+        XCTAssertEqual(orderedTitles(in: fixture.list), ["Gamma", "Alpha", "Hidden"])
+        environment.coordinator.endTaskDrag()
+        XCTAssertTrue(environment.coordinator.undoLastAction())
+        XCTAssertEqual(orderedTitles(in: fixture.list), ["Alpha", "Hidden", "Gamma"])
+        XCTAssertTrue(environment.coordinator.redoLastAction())
+        XCTAssertEqual(orderedTitles(in: fixture.list), ["Gamma", "Alpha", "Hidden"])
     }
 
     private func makeList(

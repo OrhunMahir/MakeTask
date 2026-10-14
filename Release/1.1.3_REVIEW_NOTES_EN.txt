@@ -1,0 +1,9 @@
+MakeTask 1.1.3 improves task drag reordering, list-name editing and widget status indicators. No account or demo credentials are required.
+
+To test dragging: create a list with three tasks. Drag a task title upward or downward; neighbouring rows make room before release. Release to keep the new order. Press Escape during a drag to restore the original order. Dragging between notes is also supported; completion and In Progress states are preserved. Undo/Redo restores a completed move.
+
+To test list renaming: choose Rename in the note header menu, change the name, then click the empty header space beside it. The name is saved and the selection clears. Double-click empty header space during renaming to collapse or expand the note without losing the edited name.
+
+To test widget status: set an active task to In Progress in its details. The widget shows a half-filled circle in the list color. Clicking the circle still completes the task in one click.
+
+Existing task data stays in the same local app container. The Dock icon, menu bar, keyboard shortcuts, backups and Notification Center widgets remain available. No accounts, tracking, analytics, servers or cloud sync are used. Settings > About includes the offline privacy policy.

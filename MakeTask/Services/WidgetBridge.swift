@@ -15,7 +15,7 @@ enum WidgetBridge {
             WidgetListSnapshot(id: list.id, title: list.title, color: list.colorRawValue,
                                tasks: list.orderedTasks.map {
                 WidgetTaskSnapshot(id: $0.id, title: $0.title, isCompleted: $0.isCompleted,
-                                   priority: $0.priority, dueDate: $0.dueDate)
+                                   isInProgress: $0.isInProgress, priority: $0.priority, dueDate: $0.dueDate)
             })
         })
     }

@@ -73,7 +73,6 @@ final class WindowCoordinator: ObservableObject {
     private var taskDragSnapshot: [TaskPositionSnapshot]?
     private var taskDragCurrentPositions: [UUID: TaskPositionSnapshot]?
     private var taskDragDidMove = false
-    private var taskDragCleanup: DispatchWorkItem?
     private var dueDateRefreshWorkItem: DispatchWorkItem?
     private var undoActions: [UndoAction] = []
     private var redoActions: [UndoAction] = []
@@ -828,12 +827,6 @@ final class WindowCoordinator: ObservableObject {
         taskDragSnapshot = snapshot
         taskDragCurrentPositions = Dictionary(uniqueKeysWithValues: snapshot.map { ($0.taskID, $0) })
         taskDragDidMove = false
-        taskDragCleanup?.cancel()
-        let cleanup = DispatchWorkItem { [weak self] in
-            self?.endTaskDrag()
-        }
-        taskDragCleanup = cleanup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: cleanup)
     }
 
     func updateTaskDropTarget(targetTask: TodoTask, edge: TaskDropEdge) {
@@ -846,9 +839,7 @@ final class WindowCoordinator: ObservableObject {
         taskDropTargetID = nil
     }
 
-    func endTaskDrag() {
-        taskDragCleanup?.cancel()
-        taskDragCleanup = nil
+    func endTaskDrag(committed: Bool = true) {
         taskDropTargetID = nil
         guard let beforeSnapshot = taskDragSnapshot else {
             draggedTaskID = nil
@@ -865,6 +856,11 @@ final class WindowCoordinator: ObservableObject {
         taskDragDidMove = false
         draggedTaskID = nil
         guard didMove else { return }
+        guard committed else {
+            restoreTaskPositions(beforeSnapshot)
+            saveContext()
+            return
+        }
 
         registerUndoAction(
             named: "Move Task",
@@ -873,6 +869,33 @@ final class WindowCoordinator: ObservableObject {
         )
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
             self?.saveContext()
+        }
+    }
+
+    /// Row frames and the pointer share the scroll viewport's top-left coordinate space.
+    /// Keeping the dragged row's gap in the layout prevents repeated hover events
+    /// from oscillating between the two sides of a moving neighbour.
+    func previewTaskDrop(
+        id: UUID, to list: TodoList, at point: CGPoint,
+        visibleTasks: [TodoTask], rowFrames: [UUID: CGRect]
+    ) {
+        guard draggedTaskID == id, let dragged = fetchTask(id: id) else { return }
+        if dragged.list?.id == list.id, let gap = rowFrames[id],
+           point.y >= gap.minY, point.y <= gap.maxY { return }
+
+        let candidates = visibleTasks.compactMap { task -> (TodoTask, CGRect)? in
+            guard task.id != id, task.isCompleted == dragged.isCompleted,
+                  let frame = rowFrames[task.id], frame.height > 0 else { return nil }
+            return (task, frame)
+        }.sorted { $0.1.minY < $1.1.minY }
+
+        if let next = candidates.first(where: { point.y < $0.1.midY }) {
+            moveTask(id: id, to: list, relativeTo: next.0, edge: .top, persistImmediately: false)
+        } else if let last = candidates.last {
+            moveTask(id: id, to: list, relativeTo: last.0, edge: .bottom, persistImmediately: false)
+        } else if !visibleTasks.contains(where: { $0.id != id && $0.isCompleted == dragged.isCompleted }) {
+            // Empty lists/sections accept a task, without changing its completion state.
+            moveTask(id: id, to: list, persistImmediately: false)
         }
     }
 

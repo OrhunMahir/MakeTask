@@ -157,8 +157,71 @@ final class NoteKeyboardRoutingTests: XCTestCase {
         XCTAssertEqual(resetCount, 1)
         editor.frame = panel.contentView!.convert(NSRect(x: 10, y: panel.frame.height - 30, width: 200, height: 20), from: nil)
         XCTAssertTrue(panel.makeFirstResponder(editor))
-        panel.prepareForHeaderInteraction(at: NSPoint(x: 40, y: panel.frame.height - 10))
+        panel.prepareForHeaderInteraction(at: NSPoint(x: 40, y: panel.frame.height - 15))
         XCTAssertTrue(panel.firstResponder === editor, "Clicking a list-title editor must retain its caret")
+        panel.prepareForHeaderInteraction(at: NSPoint(x: 240, y: panel.frame.height - 15))
+        XCTAssertFalse(panel.firstResponder === editor, "Empty header space must release the title editor")
+    }
+
+    func testBlankHeaderEndsRenameAndDoubleClickStillTogglesNote() async throws {
+        for collapsed in [false, true] {
+            let environment = try TestEnvironment()
+            let list = TodoList(title: "Title", isCollapsed: collapsed)
+            environment.container.mainContext.insert(list)
+            environment.coordinator.showAndActivate(list)
+            defer {
+                environment.coordinator.hide(list)
+                environment.cleanUp()
+            }
+            let panel = try XCTUnwrap(NSApp.windows.first {
+                ($0.windowController as? NoteWindowController)?.list.id == list.id
+            } as? FloatingNotePanel)
+            try await Task.sleep(for: .milliseconds(100))
+            environment.coordinator.renameListID = list.id
+            try await Task.sleep(for: .milliseconds(100))
+            let editor = try XCTUnwrap(panel.firstResponder as? NSTextView)
+            editor.selectAll(nil)
+            editor.insertText("Renamed", replacementRange: editor.selectedRange())
+            try await Task.sleep(for: .milliseconds(100))
+            panel.contentView?.layoutSubtreeIfNeeded()
+            let drag = try XCTUnwrap(findDragArea(in: panel.contentView!))
+            XCTAssertGreaterThan(drag.bounds.width, 40, "Short titles must leave empty header space while editing")
+            let blankPoint = drag.convert(NSPoint(x: drag.bounds.midX, y: drag.bounds.midY), to: nil)
+            XCTAssertFalse(editor.convert(editor.bounds, to: nil).contains(blankPoint))
+            panel.prepareForHeaderInteraction(at: blankPoint)
+            let click = try XCTUnwrap(NSEvent.mouseEvent(
+                with: .leftMouseDown, location: blankPoint, modifierFlags: [], timestamp: 0,
+                windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+            drag.mouseDown(with: click)
+            try await Task.sleep(for: .milliseconds(100))
+            XCTAssertFalse(panel.firstResponder is NSTextView)
+            XCTAssertEqual(list.title, "Renamed", "Clicking empty space must save the title draft")
+
+            // A double-click must also work directly while renaming, without Return or Cmd-M.
+            environment.coordinator.showAndActivate(list)
+            try await Task.sleep(for: .milliseconds(100))
+            environment.coordinator.renameListID = nil
+            environment.coordinator.renameListID = list.id
+            try await Task.sleep(for: .milliseconds(100))
+            let secondEditor = try XCTUnwrap(panel.firstResponder as? NSTextView)
+            secondEditor.selectAll(nil)
+            secondEditor.insertText("Final title", replacementRange: secondEditor.selectedRange())
+            try await Task.sleep(for: .milliseconds(100))
+            let currentDrag = try XCTUnwrap(findDragArea(in: panel.contentView!))
+            let event = try XCTUnwrap(NSEvent.mouseEvent(
+                with: .leftMouseDown, location: blankPoint, modifierFlags: [], timestamp: 0,
+                windowNumber: panel.windowNumber, context: nil, eventNumber: 1, clickCount: 2, pressure: 1))
+            currentDrag.mouseDown(with: event)
+            try await Task.sleep(for: .milliseconds(400))
+            XCTAssertEqual(list.title, "Final title")
+            XCTAssertEqual(list.isCollapsed, !collapsed)
+            XCTAssertFalse(panel.firstResponder is NSTextView)
+        }
+    }
+
+    private func findDragArea(in view: NSView) -> DragAreaView? {
+        if let drag = view as? DragAreaView { return drag }
+        return view.subviews.lazy.compactMap { self.findDragArea(in: $0) }.first
     }
 
     func testHeaderResetClearsSelectionAndSavesDraftInHostedNote() async throws {

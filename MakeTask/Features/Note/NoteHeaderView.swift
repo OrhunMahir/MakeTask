@@ -36,13 +36,23 @@ struct NoteHeaderView: View {
             }
 
             if isRenaming {
-                TextField("List name", text: $titleDraft)
-                    .textFieldStyle(.plain)
+                // Size the editor to its text so the empty header remains a drag/click target.
+                Text(titleDraft.isEmpty ? " " : titleDraft)
                     .font(settings.font(size: titleSize, weight: .semibold))
-                    .accessibilityIdentifier("note.list-name-field")
-                    .focused($isTitleFocused)
-                    .onSubmit(commitRename)
-                    .onExitCommand(perform: cancelRename)
+                    .lineLimit(1)
+                    .hidden()
+                    .accessibilityHidden(true)
+                    .padding(.trailing, 4)
+                    .frame(minWidth: 32)
+                    .overlay {
+                        TextField("List name", text: $titleDraft)
+                            .textFieldStyle(.plain)
+                            .font(settings.font(size: titleSize, weight: .semibold))
+                            .accessibilityIdentifier("note.list-name-field")
+                            .focused($isTitleFocused)
+                            .onSubmit(commitRename)
+                            .onExitCommand(perform: cancelRename)
+                    }
             } else {
                 Text(list.title)
                     .font(settings.font(size: titleSize, weight: .semibold))
@@ -58,8 +68,8 @@ struct NoteHeaderView: View {
                     .help("Click to rename")
             }
 
-            WindowDragArea {
-                guard !isRenaming else { return }
+            WindowDragArea(onMouseDown: commitRename) {
+                commitRename()
                 coordinator.toggleCollapse(list)
             }
             .frame(minWidth: 12, maxWidth: .infinity, maxHeight: .infinity)
@@ -176,8 +186,10 @@ struct NoteHeaderView: View {
         titleDraft = list.title
         isRenaming = true
         DispatchQueue.main.async {
+            guard isRenaming else { return }
             isTitleFocused = true
             DispatchQueue.main.async {
+                guard isRenaming, isTitleFocused else { return }
                 (NSApp.keyWindow?.firstResponder as? NSTextView)?.selectAll(nil)
             }
         }

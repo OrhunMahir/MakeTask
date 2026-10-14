@@ -16,9 +16,9 @@ final class FloatingNotePanel: NSPanel {
         let headerBottom = frame.height - height
         guard point.y >= headerBottom else { return }
         onHeaderMouseDown?()
-        // Keep an existing list-title editor usable; release body controls.
+        // Preserve the caret only when clicking inside the title editor itself.
         let responderFrame = (firstResponder as? NSView).map { $0.convert($0.bounds, to: nil) }
-        if responderFrame.map({ $0.minY < headerBottom }) ?? true {
+        if responderFrame.map({ $0.minY < headerBottom || !$0.contains(point) }) ?? true {
             makeFirstResponder(contentView)
         }
     }

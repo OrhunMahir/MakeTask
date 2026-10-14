@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct TaskRowView: View {
     @Bindable var task: TodoTask
@@ -14,7 +13,6 @@ struct TaskRowView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
     @Binding var titleDraft: String
-    @State private var rowSize: CGSize = .zero
     @FocusState private var isTitleFocused: Bool
 
     private var isSelected: Bool {
@@ -35,10 +33,6 @@ struct TaskRowView: View {
 
     private var isExpanded: Bool {
         expandedTaskID == task.id
-    }
-
-    private var isDropTarget: Bool {
-        coordinator.taskDropTargetID == task.id && !isDragging
     }
 
     private var isOverdue: Bool {
@@ -72,19 +66,9 @@ struct TaskRowView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(
-                    list.noteColor.tint.opacity(isDragging ? 0.62 : (isSelected ? 0.62 : 0)),
+                    list.noteColor.tint.opacity(isDragging ? 0.22 : (isSelected ? 0.62 : 0)),
                     lineWidth: isDragging ? 1.5 : (isSelected ? 1 : 0)
                 )
-        }
-        .overlay(alignment: coordinator.taskDropEdge == .top ? .top : .bottom) {
-            if isDropTarget {
-                Capsule()
-                    .fill(list.noteColor.tint)
-                    .frame(height: 3)
-                    .padding(.horizontal, 8)
-                    .shadow(color: list.noteColor.tint.opacity(0.35), radius: 3)
-                    .transition(.opacity)
-            }
         }
         .zIndex(isDragging ? 2 : 0)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isSelected)
@@ -116,16 +100,6 @@ struct TaskRowView: View {
                 coordinator.deleteTask(task)
             }
         }
-        .onDrop(
-            of: [UTType.text],
-            delegate: TaskRowDropDelegate(
-                targetTask: task,
-                targetList: list,
-                coordinator: coordinator,
-                targetHeight: rowSize.height,
-                reduceMotion: reduceMotion
-            )
-        )
         .background {
             GeometryReader { proxy in
                 Color.clear.preference(
@@ -136,11 +110,6 @@ struct TaskRowView: View {
                         )
                     ]
                 )
-            }
-        }
-        .onPreferenceChange(TaskRowFramePreferenceKey.self) { frames in
-            if let frame = frames[task.id] {
-                rowSize = frame.size
             }
         }
         .onChange(of: isEditing) { _, editing in
@@ -240,8 +209,9 @@ struct TaskRowView: View {
                         taskID: task.id,
                         title: task.title,
                         tint: NSColor(list.noteColor.tint),
-                        font: settings.nsFont(size: 13.5, weight: .medium),
-                        previewWidth: max(rowSize.width, 220),
+                        font: settings.nsFont(size: 13.5),
+                        isCompleted: task.isCompleted,
+                        isInProgress: task.isInProgress,
                         onClick: {
                             selectedTaskID = task.id
                             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
@@ -253,8 +223,8 @@ struct TaskRowView: View {
                             expandedTaskID = nil
                             coordinator.beginTaskDrag(task)
                         },
-                        onDragEnded: {
-                            coordinator.endTaskDrag()
+                        onDragEnded: { committed in
+                            coordinator.endTaskDrag(committed: committed)
                         }
                     )
                 }
@@ -306,83 +276,5 @@ struct TaskRowView: View {
         titleDraft = task.title
         editingTaskID = nil
         isTitleFocused = false
-    }
-}
-
-private struct TaskRowDropDelegate: DropDelegate {
-    let targetTask: TodoTask
-    let targetList: TodoList
-    let coordinator: WindowCoordinator
-    let targetHeight: CGFloat
-    let reduceMotion: Bool
-
-    func validateDrop(info: DropInfo) -> Bool {
-        coordinator.draggedTaskID != nil
-    }
-
-    func dropEntered(info: DropInfo) {
-        updateDrop(info)
-    }
-
-    func dropExited(info: DropInfo) {
-        coordinator.clearTaskDropTarget(targetTask.id)
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        updateDrop(info)
-        return DropProposal(operation: .move)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        coordinator.endTaskDrag()
-        return true
-    }
-
-    private func updateDrop(_ info: DropInfo) {
-        guard let draggedTaskID = coordinator.draggedTaskID,
-              draggedTaskID != targetTask.id else { return }
-
-        let rowHeight = max(targetHeight, 30)
-        let edge: TaskDropEdge = info.location.y < rowHeight / 2 ? .top : .bottom
-        coordinator.updateTaskDropTarget(targetTask: targetTask, edge: edge)
-
-        _ = withAnimation(
-            reduceMotion ? nil : .interactiveSpring(response: 0.24, dampingFraction: 0.86)
-        ) {
-            coordinator.moveTask(
-                id: draggedTaskID,
-                to: targetList,
-                relativeTo: targetTask,
-                edge: edge,
-                persistImmediately: false
-            )
-        }
-    }
-}
-
-struct TaskListDropDelegate: DropDelegate {
-    let targetList: TodoList
-    let coordinator: WindowCoordinator
-    let reduceMotion: Bool
-
-    func validateDrop(info: DropInfo) -> Bool {
-        coordinator.draggedTaskID != nil
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        guard let draggedTaskID = coordinator.draggedTaskID else { return false }
-        _ = withAnimation(reduceMotion ? nil : .snappy(duration: 0.20)) {
-            coordinator.moveTask(
-                id: draggedTaskID,
-                to: targetList,
-                persistImmediately: false
-            )
-        }
-        coordinator.endTaskDrag()
-        return true
     }
 }

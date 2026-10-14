@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct NoteView: View {
     @Bindable var list: TodoList
@@ -138,14 +137,22 @@ struct NoteView: View {
                             )
                         }
                     }
-                    .onDrop(
-                        of: [UTType.text],
-                        delegate: TaskListDropDelegate(
-                            targetList: list,
-                            coordinator: coordinator,
-                            reduceMotion: reduceMotion
+                    .overlay {
+                        TaskDropDestinationView(
+                            draggedTaskID: coordinator.draggedTaskID,
+                            onHover: { taskID, point in
+                                withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.24, dampingFraction: 0.86)) {
+                                    coordinator.previewTaskDrop(
+                                        id: taskID, to: list, at: point,
+                                        visibleTasks: activeTasks + (list.isCompletedSectionCollapsed ? [] : visibleCompletedTasks),
+                                        rowFrames: taskRowFrames
+                                    )
+                                }
+                            },
+                            onDrop: { coordinator.endTaskDrag() }
                         )
-                    )
+                        .allowsHitTesting(coordinator.draggedTaskID != nil)
+                    }
                     .onChange(of: selectedTaskID) { _, taskID in
                         guard let taskID else { return }
                         keepSelectionVisible(taskID, using: scrollProxy)

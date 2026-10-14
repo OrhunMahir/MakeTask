@@ -10,7 +10,7 @@ struct TaskWidgetEntry: TimelineEntry {
     static var preview: Self {
         Self(date: .now, list: WidgetListSnapshot(id: UUID(), title: "Today", color: "purple", tasks: [
             WidgetTaskSnapshot(id: UUID(), title: "Plan the week ahead", isCompleted: false, priority: 0, dueDate: nil),
-            WidgetTaskSnapshot(id: UUID(), title: "Send the project proposal", isCompleted: false, priority: 3, dueDate: nil),
+            WidgetTaskSnapshot(id: UUID(), title: "Send the project proposal", isCompleted: false, isInProgress: true, priority: 3, dueDate: nil),
             WidgetTaskSnapshot(id: UUID(), title: "Make time for a walk", isCompleted: true, priority: 0, dueDate: nil)
         ]), showCompleted: true, message: "")
     }
@@ -60,11 +60,12 @@ struct TaskWidgetView: View {
                     ForEach(Array(tasks.prefix(capacity))) { task in
                         HStack(spacing: 8) {
                             Button(intent: SetWidgetTaskCompletion(taskID: task.id, completed: !task.isCompleted)) {
-                                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 18)).foregroundStyle(task.isCompleted ? tint : .secondary)
+                                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : (task.isInProgress ? "circle.lefthalf.filled" : "circle"))
+                                    .font(.system(size: 18)).foregroundStyle(task.isCompleted || task.isInProgress ? tint : .secondary)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("\(task.isCompleted ? "Uncomplete" : "Complete") \(task.title)")
+                            .accessibilityValue(task.isCompleted ? "Completed" : (task.isInProgress ? "In Progress" : "To Do"))
                             Link(destination: WidgetRoute.task(task.id).url) {
                                 Text(task.title).font(.subheadline).lineLimit(1)
                                     .strikethrough(task.isCompleted)

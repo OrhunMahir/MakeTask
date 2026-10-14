@@ -4,8 +4,34 @@ struct WidgetTaskSnapshot: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     let title: String
     let isCompleted: Bool
+    let isInProgress: Bool
     let priority: Int
     let dueDate: Date?
+
+    init(id: UUID, title: String, isCompleted: Bool, isInProgress: Bool = false,
+         priority: Int, dueDate: Date?) {
+        self.id = id
+        self.title = title
+        self.isCompleted = isCompleted
+        self.isInProgress = isInProgress
+        self.priority = priority
+        self.dueDate = dueDate
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, isCompleted, isInProgress, priority, dueDate
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        title = try values.decode(String.self, forKey: .title)
+        isCompleted = try values.decode(Bool.self, forKey: .isCompleted)
+        // Snapshots written before 1.1.3 do not contain progress status.
+        isInProgress = try values.decodeIfPresent(Bool.self, forKey: .isInProgress) ?? false
+        priority = try values.decode(Int.self, forKey: .priority)
+        dueDate = try values.decodeIfPresent(Date.self, forKey: .dueDate)
+    }
 }
 
 struct WidgetListSnapshot: Codable, Identifiable, Equatable, Sendable {

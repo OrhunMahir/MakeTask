@@ -23,6 +23,48 @@ final class NativeNoteSafetyUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Complete Alpha Task"].waitForExistence(timeout: 5))
     }
 
+    func testMouseDragReordersTasksInBothDirections() {
+        launch()
+        let alpha = app.staticTexts.matching(NSPredicate(format: "value == %@", "Alpha Task")).firstMatch
+        let beta = app.staticTexts.matching(NSPredicate(format: "value == %@", "Beta Task")).firstMatch
+        XCTAssertLessThan(alpha.frame.minY, beta.frame.minY)
+        beta.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .click(forDuration: 0.15, thenDragTo: alpha.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)))
+        let movedUp = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            beta.frame.minY < alpha.frame.minY
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [movedUp], timeout: 3), .completed)
+        beta.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .click(forDuration: 0.15, thenDragTo: alpha.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1)))
+        let movedDown = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            alpha.frame.minY < beta.frame.minY
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [movedDown], timeout: 3), .completed)
+        XCTAssertTrue(app.buttons["Complete Alpha Task"].exists)
+        XCTAssertTrue(app.buttons["Complete Beta Task"].exists)
+    }
+
+    func testBlankHeaderCommitsListRenameAndDoubleClickCollapses() {
+        launch()
+        let options = app.descendants(matching: .any).matching(identifier: "note.options").firstMatch
+        options.click()
+        app.menuItems["Rename"].click()
+        let editor = app.descendants(matching: .any).matching(identifier: "note.list-name-field").firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 2))
+        editor.typeKey("a", modifierFlags: .command)
+        editor.typeText("Renamed")
+        let header = options.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: -90, dy: 5))
+        header.click()
+        XCTAssertTrue(editor.waitForNonExistence(timeout: 2))
+        options.click()
+        app.menuItems["Rename"].click()
+        XCTAssertTrue(editor.waitForExistence(timeout: 2))
+        header.doubleClick()
+        XCTAssertTrue(app.buttons["Complete Alpha Task"].waitForNonExistence(timeout: 2))
+        header.doubleClick()
+        XCTAssertTrue(app.buttons["Complete Alpha Task"].waitForExistence(timeout: 2))
+    }
+
     func testHeaderAndCollapseReleaseTaskSelectionAndEditing() {
         launch()
         app.typeKey(.downArrow, modifierFlags: [])
@@ -33,7 +75,7 @@ final class NativeNoteSafetyUITests: XCTestCase {
         editor.typeText("Saved draft")
         let options = app.descendants(matching: .any).matching(identifier: "note.options").firstMatch
         // Header whitespace immediately left of the options button also supports dragging.
-        let header = options.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: -30, dy: 5))
+        let header = options.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: -90, dy: 5))
         header.click()
         XCTAssertTrue(editor.waitForNonExistence(timeout: 2))
         app.typeKey(.space, modifierFlags: [])
