@@ -1,3 +1,5 @@
+> 14 Ekim güncel durum: Bu değişiklikler 1.1.3 (9) ile gönderildi; güncel doğrulama ve yayın bilgisi için [1.1.3_STATUS_TR.md](1.1.3_STATUS_TR.md). Aşağıdaki kayıt önceki yerel çalışma durumudur.
+
 # Görev sürüklerken canlı sıralama — 13 Ekim 2026
 
 Kullanıcı, 1.1.2 (8) sürümünü yayımladığını bildirdi. Bu çalışma o yayından sonraki yerel düzeltmedir; önceki başlık düzenleme düzeltmesi korunmuştur.
