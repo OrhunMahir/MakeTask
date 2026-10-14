@@ -284,6 +284,9 @@ final class NativeNoteSafetyUITests: XCTestCase {
         status.click()
         let undo = app.menuItems.matching(NSPredicate(format: "title BEGINSWITH %@", "Undo Last Action")).firstMatch
         XCTAssertTrue(undo.waitForExistence(timeout: 2))
+        // Menu-bar utilities can hide the icon while AX still exposes its
+        // unopened menu. Do not send a coordinate click to that zero-size frame.
+        try XCTSkipIf(undo.frame.isEmpty, "The status menu is hidden by the desktop menu-bar configuration.")
         XCTAssertTrue(undo.isEnabled)
         // Click the item in the open status menu without traversing app menus.
         undo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
