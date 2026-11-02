@@ -144,6 +144,18 @@ struct GuideView: View {
                 keys: settings.shortcutDescription(for: .clearCompletedTasks)
             ),
             ShortcutItem(
+                icon: "arrow.up.arrow.down",
+                title: "Select List Above/Below",
+                detail: "Follow the notes' desktop positions",
+                keys: "\(settings.shortcutDescription(for: .selectListAbove))  \(settings.shortcutDescription(for: .selectListBelow))"
+            ),
+            ShortcutItem(
+                icon: "arrow.left.arrow.right",
+                title: "Select List Left/Right",
+                detail: "Select a nearby visible note",
+                keys: "\(settings.shortcutDescription(for: .selectListLeft))  \(settings.shortcutDescription(for: .selectListRight))"
+            ),
+            ShortcutItem(
                 icon: "square.stack",
                 title: "Switch List",
                 detail: "Activate lists one through nine",

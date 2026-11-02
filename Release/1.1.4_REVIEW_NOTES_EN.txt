@@ -1,0 +1,7 @@
+MakeTask 1.1.4 adds directional keyboard navigation between desktop notes. No account or demo credentials are required.
+
+To test: create three lists and place one below and one to the right of the first. Click empty space in the first note header, then press Command-Down to select the note below. Command-Up, Command-Left and Command-Right select nearby visible notes in those directions. Collapsed notes also work. If no note is in that direction, selection stays on the current note. These shortcuts select lists; they do not move tasks.
+
+When editing a task or list name, Command + Arrow retains normal text navigation. Click empty header space to finish editing before testing list navigation. The four shortcuts can be customized under Settings > Shortcuts > List Navigation and are documented in the built-in Guide.
+
+Existing task data stays in the same local app container. The Dock icon, menu bar, keyboard shortcuts, backups and Notification Center widgets remain available. No accounts, tracking, analytics, servers or cloud sync are used. Settings > About includes the offline privacy policy.

@@ -36,6 +36,7 @@ MakeTask appears in the **Dock** while running. Click its Dock icon to reveal al
 | --- | --- |
 | Quickly add a task from any app | `⌘⇧Space` |
 | Show or hide all notes | `⌘⇧H` |
+| Select a nearby list by its position | `⌘←` `⌘→` `⌘↑` `⌘↓` |
 | Find a task in the active note | `⌘F` |
 | Undo the last action | `⌘Z` |
 

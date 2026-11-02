@@ -48,7 +48,8 @@ final class NoteKeyboardRoutingTests: XCTestCase {
         let actions: [AppShortcutAction] = [
             .completeSelectedTask, .editSelectedTask, .selectPreviousTask, .selectNextTask,
             .deleteSelectedTask, .moveSelectedTaskUp, .moveSelectedTaskDown,
-            .moveTaskToPreviousList, .deleteCurrentNote, .undo, .redo
+            .moveTaskToPreviousList, .deleteCurrentNote, .undo, .redo,
+            .selectListLeft, .selectListRight, .selectListAbove, .selectListBelow
         ]
         for control in controls {
             fixture.focus(control)

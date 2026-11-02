@@ -15,7 +15,8 @@ enum NoteKeyboardRouting {
         guard window.attachedSheet == nil, NSApp.modalWindow == nil else { return false }
         if let panel = window as? FloatingNotePanel, !panel.taskInputEnabled {
             switch action {
-            case .hideCurrentNote, .collapseCurrentNote, .renameCurrentList, .deleteCurrentNote, .newList, .searchTasks:
+            case .hideCurrentNote, .collapseCurrentNote, .renameCurrentList, .deleteCurrentNote, .newList, .searchTasks,
+                 .selectListLeft, .selectListRight, .selectListAbove, .selectListBelow:
                 break
             default:
                 return false

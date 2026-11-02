@@ -64,5 +64,8 @@ These are the defaults. Open **Settings → Shortcuts**, click any shortcut badg
 | Rename current list | `⌘L` |
 | Collapse/expand completed tasks | `⌘⇧C` |
 | Clear completed tasks (with confirmation) | `⌥⌘Delete` |
+| Select the nearest visible list in a direction | `⌘←` `⌘→` `⌘↑` `⌘↓` |
 | Switch to list 1–9 | `⌘1`…`⌘9` |
 | Cancel Quick Add or task entry | `Escape` |
+
+Directional list navigation follows the notes’ current desktop positions, including collapsed notes. If there is no note in that direction, focus stays where it is. While editing text or using a focused control, the arrow shortcuts retain their normal editing behavior.

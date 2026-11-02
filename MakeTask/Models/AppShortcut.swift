@@ -203,7 +203,7 @@ enum AppShortcutSection: String, CaseIterable, Identifiable {
         case .global: "Available while you are working in another app."
         case .notes: "Commands for creating and managing MakeTask notes."
         case .tasks: "Commands for the selected task in the active note."
-        case .listNavigation: "Direct shortcuts for your first nine lists."
+        case .listNavigation: "Move between nearby notes or jump to one of your first nine lists."
         }
     }
 }
@@ -231,6 +231,10 @@ enum AppShortcutAction: String, CaseIterable, Codable, Identifiable {
     case moveSelectedTaskDown
     case moveTaskToPreviousList
     case moveTaskToNextList
+    case selectListLeft
+    case selectListRight
+    case selectListAbove
+    case selectListBelow
     case switchToList1
     case switchToList2
     case switchToList3
@@ -255,7 +259,8 @@ enum AppShortcutAction: String, CaseIterable, Codable, Identifiable {
              .editSelectedTask, .deleteSelectedTask, .moveSelectedTaskUp,
              .moveSelectedTaskDown, .moveTaskToPreviousList, .moveTaskToNextList:
             .tasks
-        case .switchToList1, .switchToList2, .switchToList3, .switchToList4,
+        case .selectListLeft, .selectListRight, .selectListAbove, .selectListBelow,
+             .switchToList1, .switchToList2, .switchToList3, .switchToList4,
              .switchToList5, .switchToList6, .switchToList7, .switchToList8,
              .switchToList9:
             .listNavigation
@@ -290,6 +295,10 @@ enum AppShortcutAction: String, CaseIterable, Codable, Identifiable {
         case .moveSelectedTaskDown: "Move Selected Task Down"
         case .moveTaskToPreviousList: "Move Task to Previous List"
         case .moveTaskToNextList: "Move Task to Next List"
+        case .selectListLeft: "Select List to the Left"
+        case .selectListRight: "Select List to the Right"
+        case .selectListAbove: "Select List Above"
+        case .selectListBelow: "Select List Below"
         case .switchToList1: "Switch to List 1"
         case .switchToList2: "Switch to List 2"
         case .switchToList3: "Switch to List 3"
@@ -326,6 +335,8 @@ enum AppShortcutAction: String, CaseIterable, Codable, Identifiable {
         case .moveSelectedTaskDown: "Move the selected task one position down."
         case .moveTaskToPreviousList: "Send the selected task to the previous note."
         case .moveTaskToNextList: "Send the selected task to the next note."
+        case .selectListLeft, .selectListRight, .selectListAbove, .selectListBelow:
+            "Select a visible note in this direction on the desktop. While editing text, arrow keys keep their normal behavior."
         case .switchToList1, .switchToList2, .switchToList3, .switchToList4,
              .switchToList5, .switchToList6, .switchToList7, .switchToList8,
              .switchToList9:
@@ -356,6 +367,10 @@ enum AppShortcutAction: String, CaseIterable, Codable, Identifiable {
         case .moveSelectedTaskDown: "arrow.down.to.line"
         case .moveTaskToPreviousList: "arrow.left"
         case .moveTaskToNextList: "arrow.right"
+        case .selectListLeft: "arrow.left"
+        case .selectListRight: "arrow.right"
+        case .selectListAbove: "arrow.up"
+        case .selectListBelow: "arrow.down"
         case .switchToList1, .switchToList2, .switchToList3, .switchToList4,
              .switchToList5, .switchToList6, .switchToList7, .switchToList8,
              .switchToList9:
@@ -409,6 +424,14 @@ enum AppShortcutAction: String, CaseIterable, Codable, Identifiable {
             AppShortcut(keyCode: kVK_LeftArrow, modifiers: [.command, .control])
         case .moveTaskToNextList:
             AppShortcut(keyCode: kVK_RightArrow, modifiers: [.command, .control])
+        case .selectListLeft:
+            AppShortcut(keyCode: kVK_LeftArrow, modifiers: [.command])
+        case .selectListRight:
+            AppShortcut(keyCode: kVK_RightArrow, modifiers: [.command])
+        case .selectListAbove:
+            AppShortcut(keyCode: kVK_UpArrow, modifiers: [.command])
+        case .selectListBelow:
+            AppShortcut(keyCode: kVK_DownArrow, modifiers: [.command])
         case .switchToList1:
             AppShortcut(keyCode: kVK_ANSI_1, modifiers: [.command])
         case .switchToList2:
@@ -427,6 +450,16 @@ enum AppShortcutAction: String, CaseIterable, Codable, Identifiable {
             AppShortcut(keyCode: kVK_ANSI_8, modifiers: [.command])
         case .switchToList9:
             AppShortcut(keyCode: kVK_ANSI_9, modifiers: [.command])
+        }
+    }
+
+    var navigationDirection: NoteNavigationDirection? {
+        switch self {
+        case .selectListLeft: .left
+        case .selectListRight: .right
+        case .selectListAbove: .up
+        case .selectListBelow: .down
+        default: nil
         }
     }
 

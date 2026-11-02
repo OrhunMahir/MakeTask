@@ -1,0 +1,3 @@
+Move between your lists with Command + Arrow keys. MakeTask selects the nearby list in that direction based on its position on your desktop, including collapsed notes.
+
+Customize the shortcuts in Settings > Shortcuts > List Navigation. While editing text, Command + Arrow keys keep their normal cursor behavior.

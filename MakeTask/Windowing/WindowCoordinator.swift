@@ -514,6 +514,28 @@ final class WindowCoordinator: ObservableObject {
         showAndActivate(lists[index])
     }
 
+    func activateNeighboringList(in direction: NoteNavigationDirection, from sourceWindow: NSWindow) {
+        // Use the actual event window and live geometry, not saved list order or
+        // cached positions. Hidden notes and notes on other Spaces stay hidden.
+        guard let source = noteWindows.values.first(where: { $0.window === sourceWindow }),
+              !source.list.isHidden, sourceWindow.isVisible else { return }
+        let candidates = noteWindows.values.compactMap { controller -> NoteNavigation.Candidate? in
+            guard controller !== source, !controller.list.isHidden,
+                  let window = controller.window, window.isVisible,
+                  !window.isMiniaturized, window.isOnActiveSpace,
+                  window.attachedSheet == nil else { return nil }
+            return NoteNavigation.Candidate(id: controller.list.id, frame: window.frame)
+        }
+        guard let id = NoteNavigation.neighbor(from: sourceWindow.frame, in: direction, candidates: candidates),
+              let target = noteWindows[id], let window = target.window else { return }
+        // Arrive on the list canvas so a previously focused field in that note
+        // cannot swallow the next navigation shortcut.
+        noteInteractionResets.send(id)
+        window.makeFirstResponder(window.contentView)
+        target.activateAndFocus()
+        noteDidBecomeActive(target.list)
+    }
+
     func beginRenamingActiveList() {
         guard let list = activeList() else { return }
         showAndActivate(list)
@@ -1377,6 +1399,11 @@ final class WindowCoordinator: ObservableObject {
             || (AppRuntime.isRunningUITests && window.identifier?.rawValue == "note.ui-test-host")
         guard notePanelIsKey, NoteKeyboardRouting.allows(action, event: event, in: window) else {
             return event
+        }
+
+        if let direction = action.navigationDirection {
+            activateNeighboringList(in: direction, from: window)
+            return nil
         }
 
         switch action {
