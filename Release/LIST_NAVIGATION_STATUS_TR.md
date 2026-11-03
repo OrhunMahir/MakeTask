@@ -11,4 +11,4 @@ Metin alanı veya başka bir kontrol odaktayken normal ok tuşu davranışı kor
 - İzole Release preview derlemesi başarılı: `build/NavigationPreview/Build/Products/Release/MakeTask.app`. Bundle `dev.orhun.MakeTask.NavigationPreview`; ayrı App Group/URL şeması, üretim global kısayolları kapalı. Gerçek görev verileri ve kurulu uygulama değiştirilmedi.
 - Pencere aktarımı native-window testinde doğrulandı. Orhun deneme sürümünü denedikten sonra 2 Kasım’da “tamam çalışıyor” diyerek manuel kabul verdi. Yeni fiziksel XCTest UI çalıştırması yapılmadı.
 
-Değişiklikler `task-progress-focus` dalında `206c981` üzerine yerel, commit/push veya yeni App Store gönderimi yapılmadı. Sonraki yayın paketine eklenmesi gerekir. Mevcut App Store durumuna bu oturumda bakılmadı.
+Değişiklikler `task-progress-focus` dalında `9961853` olarak commit edilip gönderildi. 1.1.4 (10), 3 Kasım 2026’da Apple incelemesine gönderildi: Waiting for Review; onay sonrası otomatik yayın seçili. Ayrıntılar: [1.1.4 yayın kaydı](1.1.4_STATUS_TR.md).
