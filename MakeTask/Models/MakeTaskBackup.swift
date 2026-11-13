@@ -51,6 +51,35 @@ struct MakeTaskBackupDocument: Codable, Equatable {
         }
     }
 
+    func encoded() throws -> Data {
+        try validate()
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        let data = try encoder.encode(self)
+        guard data.count <= Self.maximumFileSize else {
+            throw MakeTaskBackupError.fileTooLarge
+        }
+        return data
+    }
+
+    static func read(from url: URL) throws -> Self {
+        let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+        guard values.isRegularFile == true else { throw MakeTaskBackupError.invalidJSON }
+        if let size = values.fileSize, size > maximumFileSize {
+            throw MakeTaskBackupError.fileTooLarge
+        }
+        let data = try Data(contentsOf: url, options: .mappedIfSafe)
+        guard data.count <= maximumFileSize else { throw MakeTaskBackupError.fileTooLarge }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let document = try? decoder.decode(Self.self, from: data) else {
+            throw MakeTaskBackupError.invalidJSON
+        }
+        try document.validate()
+        return document
+    }
+
     func validate() throws {
         guard formatVersion == Self.currentFormatVersion else {
             if formatVersion > Self.currentFormatVersion {

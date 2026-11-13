@@ -91,42 +91,11 @@ final class LocalBackupService: ObservableObject {
     }
 
     static func encode(_ document: MakeTaskBackupDocument) throws -> Data {
-        try document.validate()
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        let data = try encoder.encode(document)
-        guard data.count <= MakeTaskBackupDocument.maximumFileSize else {
-            throw MakeTaskBackupError.fileTooLarge
-        }
-        return data
+        try document.encoded()
     }
 
     static func decode(contentsOf url: URL) throws -> MakeTaskBackupDocument {
-        let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
-        guard values.isRegularFile == true else {
-            throw MakeTaskBackupError.invalidJSON
-        }
-        if let fileSize = values.fileSize,
-           fileSize > MakeTaskBackupDocument.maximumFileSize {
-            throw MakeTaskBackupError.fileTooLarge
-        }
-
-        let data = try Data(contentsOf: url, options: .mappedIfSafe)
-        guard data.count <= MakeTaskBackupDocument.maximumFileSize else {
-            throw MakeTaskBackupError.fileTooLarge
-        }
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let document: MakeTaskBackupDocument
-        do {
-            document = try decoder.decode(MakeTaskBackupDocument.self, from: data)
-        } catch {
-            throw MakeTaskBackupError.invalidJSON
-        }
-        try document.validate()
-        return document
+        try MakeTaskBackupDocument.read(from: url)
     }
 
     private func withSecurityScopedAccess<T>(

@@ -1,4 +1,6 @@
+#if canImport(AppKit)
 import AppKit
+#endif
 import SwiftUI
 
 enum NoteColor: String, CaseIterable, Codable, Identifiable {
@@ -45,6 +47,7 @@ enum NoteColor: String, CaseIterable, Codable, Identifiable {
         }
     }
 
+    #if canImport(AppKit)
     func menuSwatchImage(isSelected: Bool) -> NSImage {
         let size = NSSize(width: 14, height: 14)
         let image = NSImage(size: size, flipped: false) { rect in
@@ -75,4 +78,5 @@ enum NoteColor: String, CaseIterable, Codable, Identifiable {
         image.isTemplate = false
         return image
     }
+    #endif
 }
